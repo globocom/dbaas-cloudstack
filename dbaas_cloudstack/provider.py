@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from cloudstack_client import CloudStackClient
+from client import CloudStackClient
 from django.db import transaction
 from physical.models import DatabaseInfra, Instance, Host
 from util import make_db_random_password
