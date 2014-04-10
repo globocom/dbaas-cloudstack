@@ -1,0 +1,4 @@
+django==1.5.5
+wheel==0.22.0
+django-simple-audit==0.1.14
+South==0.8.2
