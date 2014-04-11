@@ -5,7 +5,6 @@ from physical.models import DatabaseInfra, Instance, Host
 from util import make_db_random_password
 from drivers import factory_for
 from .models import PlanAttr, HostAttr
-from ..base import BaseProvider
 from base64 import b64encode
 import logging
 from integrations.storage.manager import StorageManager
@@ -17,16 +16,16 @@ import socket
 
 LOG = logging.getLogger(__name__)
 
-class CloudStackProvider(BaseProvider):
+class CloudStackProvider(object):
 
     @classmethod
     def get_credentials(self, environment):
         LOG.info("Getting credentials...")
-        from integrations.credentials.manager import IntegrationCredentialManager
-        from integrations.credentials.models import IntegrationType
-        integration = IntegrationType.objects.get(type= IntegrationType.CLOUDSTACK)
+        from dbaas_credentials.credential import Credential
+        from dbaas_credentials.models import CredentialType
+        integration = CredentialType.objects.get(type= CredentialType.CLOUDSTACK)
 
-        return IntegrationCredentialManager.get_credentials(environment= environment, integration= integration)
+        return Credential.get_credentials(environment= environment, integration= integration)
 
     @classmethod
     def auth(self, environment):
