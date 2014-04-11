@@ -253,11 +253,11 @@ class CloudStackProvider(object):
                 LOG.info("Destroying VirtualMachine %s on cloudstack." % (vm_id))
                 api.destroyVirtualMachine('POST',{'id': "%s" % (vm_id)})
                 LOG.info("VirtualMachine destroyed!")
-                disk = disk or None
-                if disk:
-                    LOG.info("Destroying storage...")
-                    StorageManager.destroy_disk(environment= environment, plan= plan, host= host)
-                    LOG.info("Storage destroyed!")
+                if 'disk' in locals():
+                    if disk:
+                        LOG.info("Destroying storage...")
+                        StorageManager.destroy_disk(environment= environment, plan= plan, host= host)
+                        LOG.info("Storage destroyed!")
             else:
                LOG.warning("Something ocurred on cloudstack: %i, %s" % (response['errorcode'], response['errortext']))
             
