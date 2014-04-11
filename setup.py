@@ -36,6 +36,7 @@ setup(
     ],
     include_package_data=True,
     install_requires=[
+        'dbaas_credentials'
     ],
     license="BSD",
     zip_safe=False,
