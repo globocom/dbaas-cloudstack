@@ -24,7 +24,7 @@ readme = open('README.rst').read()
 history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 
 setup(
-    name='dbaas-cloudstack',
+    name='dbaas_cloudstack',
     version=version,
     description="""A cloudstack adapter to DBaaS""",
     long_description=readme + '\n\n' + history,
