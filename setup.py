@@ -30,7 +30,7 @@ setup(
     long_description=readme + '\n\n' + history,
     author='Felippe da Motta Raposo',
     author_email='raposo.felippe@gmail.com',
-    url='https://github.com/felippemr/dbaas-cloudstack',
+    url='https://github.com/globocom/dbaas-cloudstack',
     packages=[
         'dbaas_cloudstack',
     ],
