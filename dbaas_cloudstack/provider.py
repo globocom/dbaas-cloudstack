@@ -167,7 +167,11 @@ class CloudStackProvider(object):
         project_id = self.get_credentials(environment= environment).project
 
         import time
-        vmname = name.lower() + "-0001" + str(time.time()).replace(".","")
+        import re
+        stamp = str(time.time()).replace(".","")
+
+        name = re.compile("[^\w']|_").sub("", name.lower())
+        vmname = name + "-0001-" + stamp
 
         request = { 'serviceofferingid': planattr.serviceofferingid, 
                           'templateid': planattr.templateid, 
@@ -211,7 +215,7 @@ class CloudStackProvider(object):
                 instance.hostname = host
             
                 databaseinfra = DatabaseInfra()
-                databaseinfra.name = name.lower() + str(time.time()).replace(".","")
+                databaseinfra.name = name + stamp
                 databaseinfra.user  = 'root'
                 databaseinfra.password = 'root'
                 databaseinfra.engine = plan.engine_type.engines.all()[0]
