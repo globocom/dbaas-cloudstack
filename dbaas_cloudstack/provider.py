@@ -157,7 +157,7 @@ class CloudStackProvider(object):
 
     @classmethod
     @transaction.commit_on_success
-    def create_instance(self, plan, environment):
+    def create_instance(self, plan, environment, name):
         LOG.info("Provisioning new host on cloud portal with options %s %s..." % (plan, environment))
 
         api = self.auth(environment= environment)
@@ -166,12 +166,15 @@ class CloudStackProvider(object):
 
         project_id = self.get_credentials(environment= environment).project
 
+        import time
+        vmname = name.lower() + "-0001" + str(time.time()).replace(".","")
+
         request = { 'serviceofferingid': planattr.serviceofferingid, 
                           'templateid': planattr.templateid, 
                           'zoneid': planattr.zoneid,
                           'networkids': planattr.networkid,
                           'projectid': project_id,
-                          #'userdata': b64encode(planattr.userdata),
+                          'name': vmname,
                         }
 
         response = api.deployVirtualMachine('POST',request)
@@ -208,7 +211,7 @@ class CloudStackProvider(object):
                 instance.hostname = host
             
                 databaseinfra = DatabaseInfra()
-                databaseinfra.name = host_attr.vm_id
+                databaseinfra.name = name.lower() + str(time.time()).replace(".","")
                 databaseinfra.user  = 'root'
                 databaseinfra.password = 'root'
                 databaseinfra.engine = plan.engine_type.engines.all()[0]
