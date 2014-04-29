@@ -37,9 +37,9 @@ class PlanAttr(BaseModel):
 
 class HostAttr(BaseModel):
 
-    vm_id = models.CharField(verbose_name=_("Cloud Plataform vm id"), max_length=255, blank=True, null=True)
-    vm_user = models.CharField(verbose_name=_("Cloud Plataform virtual machine user"), max_length=255, blank=True, null=True)
-    vm_password = EncryptedCharField(verbose_name=_("Cloud Plataform virtual machine password"), max_length=255, blank=True, null=True)
+    vm_id = models.CharField(verbose_name=_("Cloud Stack vm id"), max_length=255, blank=True, null=True)
+    vm_user = models.CharField(verbose_name=_("Cloud Stack virtual machine user"), max_length=255, blank=True, null=True)
+    vm_password = EncryptedCharField(verbose_name=_("Cloud Stack virtual machine password"), max_length=255, blank=True, null=True)
     host = models.ForeignKey('physical.Host', related_name="cs_host_attributes")
 
     def __unicode__(self):
@@ -51,5 +51,21 @@ class HostAttr(BaseModel):
         )
         verbose_name_plural = "CloudStack Custom Host Attributes"
 
+class DatabaseInfraAttr(BaseModel):
+
+    ip = models.CharField(verbose_name=_("Cloud Stack reserved ip"), max_length=255, blank=True, null=True)
+    is_write = models.BooleanField(verbose_name=_("Is write ip"), default=True)
+    databaseinfra = models.ForeignKey('physical.DatabaseInfraAttr', related_name="cs_dbinfra_attributes")
+
+    def __unicode__(self):
+        return "Cloud Stack reserved ip for %s" % (self.databaseinfra)
+
+    class Meta:
+        permissions = (
+            ("view_csdatabaseinfraattribute", "Can view cloud stack databaseinfra attributes"),
+        )
+        verbose_name_plural = "CloudStack Custom DatabaseInfra Attributes"
+
 simple_audit.register(PlanAttr)
 simple_audit.register(HostAttr)
+simple_audit.register(DatabaseInfraAttr)
