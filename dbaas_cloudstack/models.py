@@ -54,7 +54,7 @@ class HostAttr(BaseModel):
 class DatabaseInfraAttr(BaseModel):
 
     ip = models.CharField(verbose_name=_("Cloud Stack reserved ip"), max_length=255, blank=True, null=True)
-    is_write = models.BooleanField(verbose_name=_("Is write ip"), default=True)
+    is_write = models.BooleanField(verbose_name=_("Is write ip"), default=False)
     databaseinfra = models.ForeignKey('physical.DatabaseInfra', related_name="cs_dbinfra_attributes")
 
     def __unicode__(self):
