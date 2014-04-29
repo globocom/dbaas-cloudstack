@@ -255,7 +255,7 @@ class CloudStackProvider(object):
                 LOG.info("Host %s is ready!" % (host.hostname))
                 return databaseinfra
             else:
-                return None
+                raise Exception, "Maximum number of login attempts!"
 
         except Exception, e:
             LOG.warning("We could not create the VirtualMachine because %s" % e)
