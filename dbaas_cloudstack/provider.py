@@ -147,6 +147,9 @@ class CloudStackProvider(object):
             except (paramiko.ssh_exception.BadHostKeyException, 
                         paramiko.ssh_exception.AuthenticationException, 
                         paramiko.ssh_exception.SSHException, socket.error) as e:
+                if x == retries-1:
+                    LOG.error("Maximum number of login attempts : %s ." % (e))
+                    return None 
                 LOG.warning("We caught an exception: %s ." % (e))
                 LOG.info("Wating %i seconds to try again..." % ( interval + 30))
                 sleep(interval)
@@ -251,6 +254,8 @@ class CloudStackProvider(object):
                 
                 LOG.info("Host %s is ready!" % (host.hostname))
                 return databaseinfra
+            else:
+                return None
 
         except Exception, e:
             LOG.warning("We could not create the VirtualMachine because %s" % e)
