@@ -18,6 +18,17 @@ LOG = logging.getLogger(__name__)
 
 class CloudStackProvider(object):
 
+    def __init__(self, plan, environment, name=None, qt=1):
+        self.databaseinfra = None
+        self.plan = plan
+        self.environment = environment
+        self.planattr = PlanAttr.objects.get(plan=plan)
+        self.api = self.auth(environment= environment)
+        self.project_id = self.get_credentials(environment= environment).project
+        names = self.gen_infra_name(name, qt)
+        self.vms = names['vms']
+        self.infraname = names["infra"]
+
     @classmethod
     def get_credentials(self, environment):
         LOG.info("Getting credentials...")
@@ -151,126 +162,160 @@ class CloudStackProvider(object):
                     LOG.error("Maximum number of login attempts : %s ." % (e))
                     return None 
                 LOG.warning("We caught an exception: %s ." % (e))
-                LOG.info("Wating %i seconds to try again..." % ( interval + 30))
+                LOG.info("Wating %i seconds to try again..." % ( interval))
                 sleep(interval)
-                sleep(30)
             finally:
                 ssh.close()
 
-
     @classmethod
-    @transaction.commit_on_success
-    def create_instance(self, plan, environment, name):
-        LOG.info("Provisioning new host on cloud portal with options %s %s..." % (plan, environment))
-
-        api = self.auth(environment= environment)
-        
-        planattr = PlanAttr.objects.get(plan=plan)
-
-        project_id = self.get_credentials(environment= environment).project
-
+    def gen_infra_name(self, name, qt):
         import time
         import re
+
         stamp = str(time.time()).replace(".","")
-
         name = re.compile("[^\w']|_").sub("", name.lower())
-        vmname = name + "-0001-" + stamp
+        names = {"infra": name + stamp, "vms":[]}
 
-        request = { 'serviceofferingid': planattr.serviceofferingid, 
-                          'templateid': planattr.templateid, 
-                          'zoneid': planattr.zoneid,
-                          'networkids': planattr.networkid,
-                          'projectid': project_id,
+        for x in range(qt):
+            names['vms'].append(name + "-00%i-" % (x+1)+ stamp)
+
+        return names
+
+
+    @classmethod
+    def create_instance(self, vmname):
+        LOG.info("Provisioning new host on cloud portal with options %s %s..." % (self.plan, self.environment))        
+
+        request = { 'serviceofferingid': self.planattr.serviceofferingid, 
+                          'templateid': self.planattr.templateid, 
+                          'zoneid': self.planattr.zoneid,
+                          'networkids': self.planattr.networkid,
+                          'projectid': self.project_id,
                           'name': vmname,
                         }
 
-        response = api.deployVirtualMachine('POST',request)
+        response = self.api.deployVirtualMachine('POST',request)
         
         LOG.info(" CloudStack response %s" % (response))
 
         try:
             if 'jobid' in response:
                 LOG.info("VirtualMachine created!")
-                request = {'projectid': '%s' % (project_id), 'id':'%s' % (response['id']) }
+                vm_id = response['id']
+                return vm_id
+        except Exception, e:
+            LOG.warning("We could not create the VirtualMachine because %s" % e)
+            if vm_id:
+                LOG.info("Destroying VirtualMachine %s on cloudstack." % (vm_id))
+                self.api.destroyVirtualMachine('POST',{'id': "%s" % (vm_id)})
+                LOG.info("VirtualMachine destroyed!")
+            else:
+                LOG.warning("Something ocurred on cloudstack: %i, %s" % (response['errorcode'], response['errortext']))
+            return None
+
+
+
+
+
+    @classmethod
+    @transaction.commit_on_success
+    def build_dependencies(self, vm_id):
+        try:
+            request = {'projectid': '%s' % (self.project_id), 'id':'%s' % (vm_id) }
                 
-                host_attr = HostAttr()
-                host_attr.vm_id = response['id']
+            host_attr = HostAttr()
+            host_attr.vm_id = vm_id
 
-                response = api.listVirtualMachines('GET',request)
-                host = Host()
-                host.hostname = response['virtualmachine'][0]['nic'][0]['ipaddress']
-                host.cloud_portal_host = True
-                host.save()
-                LOG.info("Host created!")
+            response = self.api.listVirtualMachines('GET',request)
+            host = Host()
+            host.hostname = response['virtualmachine'][0]['nic'][0]['ipaddress']
+            host.cloud_portal_host = True
+            host.save()
+            LOG.info("Host created!")
 
                 
-                host_attr.vm_user = 'root'
-                host_attr.vm_password = 'ChangeMe'
-                host_attr.host = host
-                host_attr.save()
-                LOG.info("Host attrs custom attributes created!")
+            host_attr.vm_user = 'root'
+            host_attr.vm_password = 'ChangeMe'
+            host_attr.host = host
+            host_attr.save()
+            LOG.info("Host attrs custom attributes created!")
 
-                instance = Instance()
-                instance.address = host.hostname
-                instance.port = 3306
-                instance.is_active = True
-                instance.is_arbiter = False
-                instance.hostname = host
+            instance = Instance()
+            instance.address = host.hostname
+            instance.port = 3306
+            instance.is_active = True
+            instance.is_arbiter = False
+            instance.hostname = host
             
+            if not self.databaseinfra:
                 databaseinfra = DatabaseInfra()
-                databaseinfra.name = name + stamp
+                databaseinfra.name = self.infraname
                 databaseinfra.user  = 'root'
                 databaseinfra.password = 'root'
-                databaseinfra.engine = plan.engine_type.engines.all()[0]
-                databaseinfra.plan = plan
-                databaseinfra.environment = environment
+                databaseinfra.engine = self.plan.engine_type.engines.all()[0]
+                databaseinfra.plan = self.plan
+                databaseinfra.environment = self.environment
                 databaseinfra.capacity = 1
                 databaseinfra.per_database_size_mbytes=0
                 databaseinfra.endpoint = instance.address + ":%i" %(instance.port)
                 databaseinfra.save()
+                self.databaseinfra = databaseinfra
                 LOG.info("DatabaseInfra created!")
-            else:
-                return None
 
-            instance.databaseinfra = databaseinfra
+            instance.databaseinfra = self.databaseinfra
             instance.save()
             LOG.info("Instance created!")
 
             ssh_ok = self.check_ssh(host)
-            
-            if  ssh_ok:
-                disk = StorageManager.create_disk(environment=environment, plan=plan, host=host)
-                context = Context({"EXPORTPATH": disk['path']})
-            
-                template = Template(planattr.userdata)
-                userdata = template.render(context)
-            
-                request = {'id': host_attr.vm_id, 'userdata': b64encode(userdata)}
-                response = api.updateVirtualMachine('POST', request)            
                 
+            if  ssh_ok:
+                disk = StorageManager.create_disk(environment=self.environment, plan=self.plan, host=host)
+                context = Context({"EXPORTPATH": disk['path']})
+                
+                template = Template(self.planattr.userdata)
+                userdata = template.render(context)
+                
+                request = {'id': host_attr.vm_id, 'userdata': b64encode(userdata)}
+                response = self.api.updateVirtualMachine('POST', request)            
+                    
                 self.run_script(host, "/opt/dbaas/scripts/dbaas_userdata_script.sh")
 
-                
-                
+                    
+                    
                 LOG.info("Host %s is ready!" % (host.hostname))
                 return databaseinfra
             else:
                 raise Exception, "Maximum number of login attempts!"
 
         except Exception, e:
-            LOG.warning("We could not create the VirtualMachine because %s" % e)
+            LOG.warning("We could build the dependencies because %s" % e)
 
-            if 'virtualmachine' in response:
-                vm_id = response['virtualmachine'][0]['id']
-                LOG.info("Destroying VirtualMachine %s on cloudstack." % (vm_id))
-                api.destroyVirtualMachine('POST',{'id': "%s" % (vm_id)})
-                LOG.info("VirtualMachine destroyed!")
-                if 'disk' in locals():
-                    if disk:
-                        LOG.info("Destroying storage...")
-                        StorageManager.destroy_disk(environment= environment, plan= plan, host= host)
-                        LOG.info("Storage destroyed!")
-            else:
-               LOG.warning("Something ocurred on cloudstack: %i, %s" % (response['errorcode'], response['errortext']))
-            
+            if 'disk' in locals():
+                if disk:
+                    LOG.info("Destroying storage...")
+                    StorageManager.destroy_disk(environment= self.environment, plan= self.plan, host= host)
+                    LOG.info("Storage destroyed!")
+                
             return None
+
+    def deploy_cluster(self):
+        vms_created = []
+        x = 0 
+        for name in self.vms:
+            vms_created.append(self.create_instance(name))
+            if vms_created[x]:
+                if not self.databaseinfra:
+                    self.databaseinfra= self.build_dependencies(vm_id= vms_created[x])
+                else:
+                    self.build_dependencies(vm_id= vms_created[x])
+                    return self.databaseinfra
+
+
+
+
+    def deploy_single_instance(self):
+        for name in self.vms:
+            vm_id = self.create_instance(name)
+            self.databaseinfra= self.build_dependencies(vm_id= vm_id)
+
+        
