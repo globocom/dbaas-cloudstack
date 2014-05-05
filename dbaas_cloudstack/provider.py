@@ -74,6 +74,23 @@ class CloudStackProvider(object):
                     if response['jobid']:
                         LOG.warning("VirtualMachine destroyed!")
 
+                        #removing data from flipper
+                        import re
+                        mp = (re.sub("[^a-zA-Z]","", database.databaseinfra.name)[:20])
+
+                        flipper_conn = MySQLdb.connect(host='dev.mysql.globoi.com', port=3306,
+                                                                            user='flipper', passwd='flipit!',
+                                                                            db='flipper_metadata')
+                        flipper_cursor = flipper_conn.cursor()
+                        
+                        sql_delete= "DELETE FROM masterpair  WHERE masterpair='%s' " % mp
+                        flipper_cursor.execute(sql_delete)
+
+                        sql_delete= "DELETE FROM node  WHERE masterpair='%s' " % mp
+                        flipper_cursor.execute(sql_delete)
+
+                        flipper_cursor.execute("commit")
+
                         instance = Instance.objects.get(hostname=host)
                         
                         if posic == len(hosts):
@@ -81,7 +98,7 @@ class CloudStackProvider(object):
                             databaseinfra.delete()
                             LOG.info("DatabaseInfra destroyed!")
                         
-                        instance.delete
+                        instance.delete()
                         LOG.info("Instance destroyed!")
                         host_attr.delete()
                         LOG.info("Host custom cloudstack attrs destroyed!")
