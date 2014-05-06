@@ -8,6 +8,7 @@ from .models import PlanAttr, HostAttr, DatabaseInfraAttr
 from base64 import b64encode
 import logging
 from integrations.storage.manager import StorageManager
+from dbaas_flipper.provider import FlipperProvider
 from django.template import Context, Template
 from time import sleep
 import paramiko
@@ -71,25 +72,12 @@ class CloudStackProvider(object):
                 response = api.destroyVirtualMachine('GET',request)
             
                 try:
-                    if response['jobid']:
+                    if 'jobid' in response:
                         LOG.warning("VirtualMachine destroyed!")
 
                         #removing data from flipper
-                        import re
-                        mp = (re.sub("[^a-zA-Z]","", database.databaseinfra.name)[:20])
-
-                        flipper_conn = MySQLdb.connect(host='dev.mysql.globoi.com', port=3306,
-                                                                            user='flipper', passwd='flipit!',
-                                                                            db='flipper_metadata')
-                        flipper_cursor = flipper_conn.cursor()
-                        
-                        sql_delete= "DELETE FROM masterpair  WHERE masterpair='%s' " % mp
-                        flipper_cursor.execute(sql_delete)
-
-                        sql_delete= "DELETE FROM node  WHERE masterpair='%s' " % mp
-                        flipper_cursor.execute(sql_delete)
-
-                        flipper_cursor.execute("commit")
+                        flipper = FlipperProvider()
+                        flipper.destroy_flipper_dependencies(name= database.databaseinfra.name[:20], environment= environment)
 
                         instance = Instance.objects.get(hostname=host)
                         
@@ -107,8 +95,8 @@ class CloudStackProvider(object):
                         paramiko.HostKeys().clear()
                         LOG.info("Removing key from known hosts!")
                         LOG.info("Finished!")
-                except (KeyError, LookupError):
-                    LOG.warning("We could not destroy the VirtualMachine. :(")
+                except Exception, e:
+                    LOG.warning("We could not destroy the VirtualMachine.  %s :(" % e)
         else:
             LOG.warning("Putting database %s in quarantine" % database.name)
             database.is_in_quarantine=True
@@ -201,8 +189,6 @@ class CloudStackProvider(object):
         project_id = self.get_credentials(environment= environment).project
         names = self.gen_infra_name(name, 2)
         infraname = names["infra"]
-        vmname = names["vms"][0]
-        
         
         #response = api.listVirtualMachines('GET',request)
         #print response
@@ -220,11 +206,34 @@ class CloudStackProvider(object):
         databaseinfra.save()
         LOG.info("DatabaseInfra created!")
 
-        instance1 = self.create_vm(api, planattr, project_id, infraname, names["vms"][0], plan, environment, True, databaseinfra)
-        instance2 = self.create_vm(api, planattr, project_id, infraname, names["vms"][1], plan, environment, True, databaseinfra)        
-        if instance1 is None or instance2 is None:
+        instances = []
+        x = 0 
+
+        for vmname in names["vms"]:
+            instances.append(self.create_vm(api, planattr, project_id, infraname, vmname, plan, environment, True, databaseinfra))
+
+            if x == 0 and instances[0]==None:
+                return None
+
+            if x ==1 and instances[1]==None:
+                LOG.warning("Destroying cloudstack cluster instance!")
+            
+                project_id = self.get_credentials(environment= environment).project
+
+                api = self.auth(environment= environment)
+                request = { 'projectid': '%s' % (project_id),
+                            'id': '%s' % (instances[0].hostname.cs_host_attributes.all()[0].vm_id)
+                          }
+                api.destroyVirtualMachine('GET',request)
+                return None
+
+            x+=1
+
+     
+        if None in instances:
             databaseinfra.delete()
             return None
+
         databasesinfraattr = DatabaseInfraAttr.objects.filter(databaseinfra=databaseinfra)
         databasesinfraattr[0].is_write = True
         databasesinfraattr[0].save()
@@ -238,8 +247,8 @@ class CloudStackProvider(object):
             'DBPASSWORD': 'root',
             'IPMASTER': None,
             'IPWRITE': writeip,
-            'HOST01': instance1.hostname,
-            'HOST02': instance2.hostname,
+            'HOST01': instances[0].hostname,
+            'HOST02': instances[1].hostname,
             'MASTERPAIRNAME': masterpairname,
             'SECOND_SCRIPT_FILE': second_script,
         }
@@ -267,68 +276,33 @@ class CloudStackProvider(object):
         
         
         ##### cadastro metadados flipper
-        
-        flipper_conn = MySQLdb.connect(host='dev.mysql.globoi.com', port=3306,
-                                     user='flipper', passwd='flipit!',
-                                     db='flipper_metadata')
-        flipper_cursor = flipper_conn.cursor()
-        sql_insert = "INSERT INTO masterpair (masterpair, name, value) values ('%s', '%s', '%s')" % (masterpairname, 'broadcast', '10.25.12.255')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO masterpair (masterpair, name, value) values ('%s', '%s', '%s')" % (masterpairname, 'mysql_password', 'flipit!')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO masterpair (masterpair, name, value) values ('%s', '%s', '%s')" % (masterpairname, 'mysql_user', 'flipper')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO masterpair (masterpair, name, value) values ('%s', '%s', '%s')" % (masterpairname, 'netmask', '255.255.255.0')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO masterpair (masterpair, name, value) values ('%s', '%s', '%s')" % (masterpairname, 'quiesce_strategy', 'KillAll')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO masterpair (masterpair, name, value) values ('%s', '%s', '%s')" % (masterpairname, 'read_ip', readip)
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO masterpair (masterpair, name, value) values ('%s', '%s', '%s')" % (masterpairname, 'send_arp_command', '/sbin/arping -I $sendarp_interface -c 5 -U -A $sendarp_ip')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO masterpair (masterpair, name, value) values ('%s', '%s', '%s')" % (masterpairname, 'ssh_user', 'flipper')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO masterpair (masterpair, name, value) values ('%s', '%s', '%s')" % (masterpairname, 'use_sudo', '1')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO masterpair (masterpair, name, value) values ('%s', '%s', '%s')" % (masterpairname, 'write_ip', writeip)
-        flipper_cursor.execute(sql_insert)
-        
-        sql_insert = "INSERT INTO node (masterpair, node, name, value) values ('%s', '%s', '%s', '%s')" % (masterpairname, instance1.hostname.hostname, 'interface', 'eth2')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO node (masterpair, node, name, value) values ('%s', '%s', '%s', '%s')" % (masterpairname, instance1.hostname.hostname, 'ip', instance1.hostname.hostname)
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO node (masterpair, node, name, value) values ('%s', '%s', '%s', '%s')" % (masterpairname, instance1.hostname.hostname, 'read_interface', 'eth2:98')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO node (masterpair, node, name, value) values ('%s', '%s', '%s', '%s')" % (masterpairname, instance1.hostname.hostname, 'write_interface', 'eth2:99')
-        flipper_cursor.execute(sql_insert)
 
-        sql_insert = "INSERT INTO node (masterpair, node, name, value) values ('%s', '%s', '%s', '%s')" % (masterpairname, instance2.hostname.hostname, 'interface', 'eth2')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO node (masterpair, node, name, value) values ('%s', '%s', '%s', '%s')" % (masterpairname, instance2.hostname.hostname, 'ip', instance2.hostname.hostname)
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO node (masterpair, node, name, value) values ('%s', '%s', '%s', '%s')" % (masterpairname, instance2.hostname.hostname, 'read_interface', 'eth2:98')
-        flipper_cursor.execute(sql_insert)
-        sql_insert = "INSERT INTO node (masterpair, node, name, value) values ('%s', '%s', '%s', '%s')" % (masterpairname, instance2.hostname.hostname, 'write_interface', 'eth2:99')
-        flipper_cursor.execute(sql_insert)
-        
-        flipper_cursor.execute("commit")
+
+
+        flipper = FlipperProvider()
+        flipper.create_flipper_dependencies(masterpairname= masterpairname, 
+                                                                readip= readip, 
+                                                                writeip= writeip, 
+                                                                instance1= instances[0], 
+                                                                instance2= instances[1], 
+                                                                environment= environment)
 
         
-        run_scripts_vms(contextdict, instance1.hostname, 1, instance2.address )
-        run_scripts_vms(contextdict, instance2.hostname, 2, instance1.address )
-        self.run_script(instance1.hostname, second_script)
-        self.run_script(instance2.hostname, second_script)
+        run_scripts_vms(contextdict, instances[0].hostname, 1, instances[1].address )
+        run_scripts_vms(contextdict, instances[1].hostname, 2, instances[0].address )
+        self.run_script(instances[0].hostname, second_script)
+        self.run_script(instances[1].hostname, second_script)
         
 
         #databaseinfra.endpoint = writeip + ":%i" %(3306)
-        databaseinfra.endpoint = instance1.hostname.hostname + ":%i" %(3306)
+        databaseinfra.endpoint = instances[0].hostname.hostname + ":%i" %(3306)
         databaseinfra.save()
         
-        instance1.databaseinfra = databaseinfra
-        instance1.save()
+        instances[0].databaseinfra = databaseinfra
+        instances[0].save()
 
-        instance2.databaseinfra = databaseinfra
-        instance2.save()
+        instances[1].databaseinfra = databaseinfra
+        instances[1].save()
 
         LOG.info("Instance created!")
         
