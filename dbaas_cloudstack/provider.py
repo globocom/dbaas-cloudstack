@@ -13,8 +13,6 @@ from django.template import Context, Template
 from time import sleep
 import paramiko
 import socket
-import MySQLdb
-
 
 LOG = logging.getLogger(__name__)
 
@@ -202,7 +200,6 @@ class CloudStackProvider(object):
         databaseinfra.environment = environment
         databaseinfra.capacity = 1
         databaseinfra.per_database_size_mbytes=0
-        #databaseinfra.endpoint = instance1.address + ":%i" %(instance1.port)
         databaseinfra.save()
         LOG.info("DatabaseInfra created!")
 
@@ -213,6 +210,7 @@ class CloudStackProvider(object):
             instances.append(self.create_vm(api, planattr, project_id, infraname, vmname, plan, environment, True, databaseinfra))
 
             if x == 0 and instances[0]==None:
+                databaseinfra.delete()
                 return None
 
             if x ==1 and instances[1]==None:
@@ -225,88 +223,120 @@ class CloudStackProvider(object):
                             'id': '%s' % (instances[0].hostname.cs_host_attributes.all()[0].vm_id)
                           }
                 api.destroyVirtualMachine('GET',request)
+                databaseinfra.delete()
                 return None
 
             x+=1
 
-     
-        if None in instances:
-            databaseinfra.delete()
-            return None
-
         databasesinfraattr = DatabaseInfraAttr.objects.filter(databaseinfra=databaseinfra)
         databasesinfraattr[0].is_write = True
         databasesinfraattr[0].save()
-        writeip = databasesinfraattr[0].ip
-        readip = databasesinfraattr[1].ip
-        masterpairname = name[0:20]
-        second_script = '/opt/dbaas/scripts/dbaas_second_script.sh'
+
         contextdict = {
             'EXPORTPATH': None,
             'SERVERID': None,
             'DBPASSWORD': 'root',
             'IPMASTER': None,
-            'IPWRITE': writeip,
-            'HOST01': instances[0].hostname,
-            'HOST02': instances[1].hostname,
-            'MASTERPAIRNAME': masterpairname,
-            'SECOND_SCRIPT_FILE': second_script,
+            'IPWRITE': databasesinfraattr[0].ip,
+            'IPREAD': databasesinfraattr[1].ip,
+            'MASTERPAIRNAME': name[0:20],
+            'HOST01': instances[0],
+            'HOST02': instances[1],
+            'SECOND_SCRIPT_FILE': '/opt/dbaas/scripts/dbaas_second_script.sh',
         }
-        def run_scripts_vms(contextdict, host, serverid, master):
-            #host = intance.hostname
-            host_attr = HostAttr.objects.filter(host= host)[0]
-            disk = StorageManager.create_disk(environment=environment, plan=plan, host=host)
+
+        try:
+            self.build_dependencies(contextdict=contextdict, host=contextdict['HOST01'].hostname, serverid=1, master=contextdict['HOST02'].address, 
+                                         environment=environment, plan=plan, databaseinfra=databaseinfra, api=api)
+
+            self.build_dependencies(contextdict=contextdict, host=contextdict['HOST02'].hostname, serverid=2, master=contextdict['HOST01'].address, 
+                                         environment=environment, plan=plan, databaseinfra=databaseinfra, api=api)
+
+            if self.run_script(contextdict['HOST01'].hostname, contextdict['SECOND_SCRIPT_FILE'])==0:
+                if self.run_script(contextdict['HOST02'].hostname, contextdict['SECOND_SCRIPT_FILE'])==0:
+                    pass
+                else:
+                    raise Exception, "We could not run the script on host 2"
+            else:
+                    raise Exception, "We could not run the script on host 1"
+        except Exception, e:
+            for instance in instances:
+                LOG.warning("We could not deploy your cluster because: %s" % e)
+                api.destroyVirtualMachine('POST',{'id': "%s" % (instance.hostname.cs_host_attributes.all()[0].vm_id)})
+                databaseinfra.delete()
+                flipper = FlipperProvider()
+                flipper.destroy_flipper_dependencies(name= databaseinfra.name[:20], environment= environment)
+                StorageManager.destroy_disk(environment= environment, plan= plan, host= instance.hostname)
+                return None
+
+
+
+    @classmethod
+    def build_user_data(self, contextdict, plan):
+        planattr = PlanAttr.objects.get(plan=plan)
+        
+        LOG.info(str(contextdict))
+
+        context = Context(contextdict)
+        
+        template = Template(planattr.userdata)
+        return template.render(context)
+
+    @classmethod
+    def build_nfsaas(self, environment, plan, host):
+        return StorageManager.create_disk(environment=environment, plan=plan, host=host)
+
+    @classmethod
+    def build_flipper(self, contextdict, environment):
+        flipper = FlipperProvider()
+        flipper.create_flipper_dependencies(masterpairname= contextdict['MASTERPAIRNAME'], 
+                                                                readip= contextdict['IPREAD'], 
+                                                                writeip= contextdict['IPWRITE'], 
+                                                                instance1= contextdict['HOST01'], 
+                                                                instance2= contextdict['HOST02'], 
+                                                                environment= environment)
+
+    @classmethod
+    def update_userdata(self, host, api, plan, contextdict):
+        host_attr = HostAttr.objects.filter(host= host)[0]
+        request = { 'id': host_attr.vm_id, 
+                          'userdata': b64encode(self.build_user_data(contextdict, plan))
+                        }
+        api.updateVirtualMachine('POST', request)
+            
+        self.run_script(host, "/opt/dbaas/scripts/dbaas_userdata_script.sh")
+        LOG.info("Host %s is ready!" % (host.hostname))
+
+    @classmethod
+    @transaction.commit_on_success
+    def build_dependencies(self, contextdict, host, serverid, master, environment, plan, databaseinfra, api):
+        try:
+            disk = self.build_nfsaas(environment= environment, plan= plan, host= host)
+
             contextdict['EXPORTPATH'] = disk['path']
             contextdict['SERVERID'] = serverid
             contextdict['IPMASTER'] = master
+
+            self.update_userdata(host= host, api= api, plan= plan, contextdict= contextdict)
+
+            if serverid==1:
+                self.build_flipper(contextdict= contextdict, environment= environment)
+
+            #databaseinfra.endpoint = writeip + ":%i" %(3306)
+            databaseinfra.endpoint = contextdict['HOST01'].hostname.hostname + ":%i" %(3306)
+            databaseinfra.save()
             
-            LOG.info(str(contextdict))
+            contextdict['HOST01'].databaseinfra = databaseinfra
+            contextdict['HOST01'].save()
 
-            context = Context(contextdict)
+            contextdict['HOST02'].databaseinfra = databaseinfra
+            contextdict['HOST02'].save()
+
+            LOG.info("Instance created!")
             
-            template = Template(planattr.userdata)
-            userdata = template.render(context)
-                            
-            request = {'id': host_attr.vm_id, 'userdata': b64encode(userdata)}
-            response = api.updateVirtualMachine('POST', request)
-                
-            self.run_script(host, "/opt/dbaas/scripts/dbaas_userdata_script.sh")
-
-            LOG.info("Host %s is ready!" % (host.hostname))
-        
-        
-        ##### cadastro metadados flipper
-
-
-
-        flipper = FlipperProvider()
-        flipper.create_flipper_dependencies(masterpairname= masterpairname, 
-                                                                readip= readip, 
-                                                                writeip= writeip, 
-                                                                instance1= instances[0], 
-                                                                instance2= instances[1], 
-                                                                environment= environment)
-
-        
-        run_scripts_vms(contextdict, instances[0].hostname, 1, instances[1].address )
-        run_scripts_vms(contextdict, instances[1].hostname, 2, instances[0].address )
-        self.run_script(instances[0].hostname, second_script)
-        self.run_script(instances[1].hostname, second_script)
-        
-
-        #databaseinfra.endpoint = writeip + ":%i" %(3306)
-        databaseinfra.endpoint = instances[0].hostname.hostname + ":%i" %(3306)
-        databaseinfra.save()
-        
-        instances[0].databaseinfra = databaseinfra
-        instances[0].save()
-
-        instances[1].databaseinfra = databaseinfra
-        instances[1].save()
-
-        LOG.info("Instance created!")
-        
-        return databaseinfra
+            return databaseinfra
+        except Exception, e:
+            print e
 
     @classmethod
     @transaction.commit_on_success
@@ -395,7 +425,6 @@ class CloudStackProvider(object):
             ssh_ok = self.check_ssh(host)
             
             if  ssh_ok:
-
                 if cluster:
                     request = {'projectid': '%s' % (project_id), 'id':'%s' % (host_attr.vm_id) }
                     response = api.listVirtualMachines('GET',request)
@@ -412,9 +441,7 @@ class CloudStackProvider(object):
                     databaseinfraattr.ip = secondary_ip
                     databaseinfraattr.databaseinfra = databaseinfra
                     databaseinfraattr.save()
-                
                 else:
-
                     disk = StorageManager.create_disk(environment=environment, plan=plan, host=host)
                     context = Context({"EXPORTPATH": disk['path']})
             
@@ -429,9 +456,7 @@ class CloudStackProvider(object):
                     LOG.info("Host %s is ready!" % (host.hostname))
                 
                 return instance
-            
             else:
-                
                 raise Exception, "Maximum number of login attempts!"
 
         except Exception, e:
