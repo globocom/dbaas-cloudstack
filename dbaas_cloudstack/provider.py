@@ -262,12 +262,19 @@ class CloudStackProvider(object):
         except Exception, e:
             for instance in instances:
                 LOG.warning("We could not deploy your cluster because: %s" % e)
+
+                LOG.info("Remove all database files")
+                self.run_script(instance.hostname, "/opt/dbaas/scripts/dbaas_deletedatabasefiles.sh")
+                StorageManager.destroy_disk(environment= environment, plan= plan, host= instance.hostname)
+
                 api.destroyVirtualMachine('POST',{'id': "%s" % (instance.hostname.cs_host_attributes.all()[0].vm_id)})
-                databaseinfra.delete()
+                instance.hostname.delete()            
                 flipper = FlipperProvider()
                 flipper.destroy_flipper_dependencies(name= databaseinfra.name[:20], environment= environment)
-                StorageManager.destroy_disk(environment= environment, plan= plan, host= instance.hostname)
-                return None
+            databaseinfra.delete()
+            return None
+        
+        return databaseinfra
 
 
 
