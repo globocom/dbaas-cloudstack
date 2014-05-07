@@ -240,25 +240,28 @@ class CloudStackProvider(object):
             'IPWRITE': databasesinfraattr[0].ip,
             'IPREAD': databasesinfraattr[1].ip,
             'MASTERPAIRNAME': name[0:20],
-            'HOST01': instances[0],
-            'HOST02': instances[1],
+            'HOST01': instances[0].hostname,
+            'HOST02': instances[1].hostname,
             'SECOND_SCRIPT_FILE': '/opt/dbaas/scripts/dbaas_second_script.sh',
         }
 
         try:
-            self.build_dependencies(contextdict=contextdict, host=contextdict['HOST01'].hostname, serverid=1, master=contextdict['HOST02'].address, 
+            self.build_dependencies(contextdict=contextdict, host=contextdict['HOST01'], serverid=1, master=contextdict['HOST02'], 
                                          environment=environment, plan=plan, databaseinfra=databaseinfra, api=api)
 
-            self.build_dependencies(contextdict=contextdict, host=contextdict['HOST02'].hostname, serverid=2, master=contextdict['HOST01'].address, 
+            self.build_dependencies(contextdict=contextdict, host=contextdict['HOST02'], serverid=2, master=contextdict['HOST01'], 
                                          environment=environment, plan=plan, databaseinfra=databaseinfra, api=api)
 
-            if self.run_script(contextdict['HOST01'].hostname, contextdict['SECOND_SCRIPT_FILE'])==0:
-                if self.run_script(contextdict['HOST02'].hostname, contextdict['SECOND_SCRIPT_FILE'])==0:
-                    pass
-                else:
-                    raise Exception, "We could not run the script on host 2"
-            else:
-                    raise Exception, "We could not run the script on host 1"
+            self.run_script(contextdict['HOST01'], contextdict['SECOND_SCRIPT_FILE'])
+            self.run_script(contextdict['HOST02'], contextdict['SECOND_SCRIPT_FILE'])
+            
+            #if self.run_script(contextdict['HOST01'].hostname, contextdict['SECOND_SCRIPT_FILE'])==0:
+            #    if self.run_script(contextdict['HOST02'].hostname, contextdict['SECOND_SCRIPT_FILE'])==0:
+            #        pass
+            #    else:
+            #        raise Exception, "We could not run the script on host 2"
+            #else:
+            #        raise Exception, "We could not run the script on host 1"
         except Exception, e:
             for instance in instances:
                 LOG.warning("We could not deploy your cluster because: %s" % e)
@@ -330,7 +333,7 @@ class CloudStackProvider(object):
                 self.build_flipper(contextdict= contextdict, environment= environment)
 
             #databaseinfra.endpoint = writeip + ":%i" %(3306)
-            databaseinfra.endpoint = contextdict['HOST01'].hostname.hostname + ":%i" %(3306)
+            databaseinfra.endpoint = contextdict['HOST01'].hostname + ":%i" %(3306)
             databaseinfra.save()
             
             contextdict['HOST01'].databaseinfra = databaseinfra
@@ -338,6 +341,7 @@ class CloudStackProvider(object):
 
             contextdict['HOST02'].databaseinfra = databaseinfra
             contextdict['HOST02'].save()
+            transaction.commit()
 
             LOG.info("Instance created!")
             
