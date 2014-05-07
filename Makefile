@@ -10,8 +10,13 @@ help:
 	@echo "docs - generate Sphinx HTML documentation, including API docs"
 	@echo "release - package and upload a release"
 	@echo "sdist - package"
+	@echo "fake_deploy - copy files to local site-packages"
 
 clean: clean-build clean-pyc
+
+fake_deploy:
+	rm /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/provider.pyc
+	cp dbaas_cloudstack/provider.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
 
 clean-build:
 	rm -fr build/
