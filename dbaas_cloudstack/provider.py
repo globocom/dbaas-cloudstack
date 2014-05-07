@@ -379,6 +379,20 @@ class CloudStackProvider(object):
         LOG.info("Instance created!")
         
         return databaseinfra
+
+    @classmethod
+    def reserve_ip(project_id, host_attr, api):
+        request = {'projectid': '%s' % (project_id), 'id':'%s' % (host_attr.vm_id) }
+        response = api.listVirtualMachines('GET',request)
+        nicid = response['virtualmachine'][0]['nic'][0]['id']
+        api.addIpToNic('GET', {'nicid': nicid})
+
+        sleep(20)    
+        request['virtualmachineid'] = host_attr.vm_id
+        response = api.listNics('GET',request)
+        secondary_ip = response['nic'][0]['secondaryip'][0]['ipaddress']
+        LOG.info('Secondary ip %s do host %s' % (secondary_ip, host_attr.host))
+        return secondary_ip
             
         
 
@@ -432,36 +446,14 @@ class CloudStackProvider(object):
             ssh_ok = self.check_ssh(host)
             
             if  ssh_ok:
-                if cluster:
-                    request = {'projectid': '%s' % (project_id), 'id':'%s' % (host_attr.vm_id) }
-                    response = api.listVirtualMachines('GET',request)
-                    nicid = response['virtualmachine'][0]['nic'][0]['id']
-                    api.addIpToNic('GET', {'nicid': nicid})
-                    
-                    sleep(20)    
-                    request['virtualmachineid'] = host_attr.vm_id
-                    response = api.listNics('GET',request)
-                    secondary_ip = response['nic'][0]['secondaryip'][0]['ipaddress']
-                    LOG.info('Secondary ip %s do host %s' % (secondary_ip, host_attr.host))
-                    
+                if cluster:                    
                     databaseinfraattr = DatabaseInfraAttr()
-                    databaseinfraattr.ip = secondary_ip
+                    databaseinfraattr.ip = self.reserve_ip(project_id= project_id, host_attr= host_attr, api= api)
                     databaseinfraattr.databaseinfra = databaseinfra
                     databaseinfraattr.save()
                 else:
-                    disk = StorageManager.create_disk(environment=environment, plan=plan, host=host)
-                    context = Context({"EXPORTPATH": disk['path']})
-            
-                    template = Template(planattr.userdata)
-                    userdata = template.render(context)
-                            
-                    request = {'id': host_attr.vm_id, 'userdata': b64encode(userdata)}
-                    response = api.updateVirtualMachine('POST', request)
-                
-                    self.run_script(host, "/opt/dbaas/scripts/dbaas_userdata_script.sh")
-
-                    LOG.info("Host %s is ready!" % (host.hostname))
-                
+                    disk = self.build_nfsaas(environment=environment, plan=plan, host=host)
+                    self.update_userdata(host= host, api= api, plan= plan, contextdict={"EXPORTPATH": disk['path']})
                 return instance
             else:
                 raise Exception, "Maximum number of login attempts!"
