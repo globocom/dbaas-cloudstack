@@ -73,9 +73,8 @@ class CloudStackProvider(object):
                     if 'jobid' in response:
                         LOG.warning("VirtualMachine destroyed!")
 
-                        #removing data from flipper
                         flipper = FlipperProvider()
-                        flipper.destroy_flipper_dependencies(name= database.databaseinfra.name[:20], environment= environment)
+                        flipper.destroy_flipper_dependencies(name=database.databaseinfra.name, environment=environment)
 
                         instance = Instance.objects.get(hostname=host)
                         
@@ -256,7 +255,7 @@ class CloudStackProvider(object):
                 api.destroyVirtualMachine('POST',{'id': "%s" % (instance.hostname.cs_host_attributes.all()[0].vm_id)})
                 instance.hostname.delete()            
                 flipper = FlipperProvider()
-                flipper.destroy_flipper_dependencies(name= databaseinfra.name[:20], environment= environment)
+                flipper.destroy_flipper_dependencies(name= databaseinfra.name, environment= environment)
             databaseinfra.delete()
             return None
         
