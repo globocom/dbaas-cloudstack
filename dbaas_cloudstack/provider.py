@@ -191,42 +191,23 @@ class CloudStackProvider(object):
         #response = api.listVirtualMachines('GET',request)
         #print response
         
-        databaseinfra = DatabaseInfra()
-        databaseinfra.name = infraname
-        databaseinfra.user  = 'root'
-        databaseinfra.password = 'root'
-        databaseinfra.engine = plan.engine_type.engines.all()[0]
-        databaseinfra.plan = plan
-        databaseinfra.environment = environment
-        databaseinfra.capacity = 1
-        databaseinfra.per_database_size_mbytes=0
-        databaseinfra.save()
-        LOG.info("DatabaseInfra created!")
+        databaseinfra = self.build_databaseinfra(infraname= infraname, plan= plan, environment= environment)
 
         instances = []
-        x = 0 
 
         for vmname in names["vms"]:
-            instances.append(self.create_vm(api, planattr, project_id, infraname, vmname, plan, environment, True, databaseinfra))
+            instance = self.create_vm(api, planattr, project_id, infraname, vmname, plan, environment, True, databaseinfra)
 
-            if x == 0 and instances[0]==None:
+            if instance==None:
+                for i in instances:
+
+                    LOG.warning("Destroying cloudstack cluster instance!")
+                    self.destroy_vm(environment= environment, instance=i)
+
                 databaseinfra.delete()
                 return None
-
-            if x ==1 and instances[1]==None:
-                LOG.warning("Destroying cloudstack cluster instance!")
-            
-                project_id = self.get_credentials(environment= environment).project
-
-                api = self.auth(environment= environment)
-                request = { 'projectid': '%s' % (project_id),
-                            'id': '%s' % (instances[0].hostname.cs_host_attributes.all()[0].vm_id)
-                          }
-                api.destroyVirtualMachine('GET',request)
-                databaseinfra.delete()
-                return None
-
-            x+=1
+            else:
+                instances.append(instance)
 
         databasesinfraattr = DatabaseInfraAttr.objects.filter(databaseinfra=databaseinfra)
         databasesinfraattr[0].is_write = True
@@ -279,6 +260,15 @@ class CloudStackProvider(object):
         
         return databaseinfra
 
+    classmethod
+    def destroy_vm(self, environment, instance):
+        project_id = self.get_credentials(environment= environment).project
+
+        api = self.auth(environment= environment)
+        request = { 'projectid': '%s' % (project_id),
+                              'id': '%s' % (instance.hostname.cs_host_attributes.all()[0].vm_id)
+                            }
+        api.destroyVirtualMachine('GET',request)
 
 
     @classmethod
@@ -365,6 +355,17 @@ class CloudStackProvider(object):
         if instance is None:
             return None
         
+        databaseinfra =  self.build_databaseinfra(infraname= infraname, plan= plan, environment= environment)
+        databaseinfra.endpoint = instance.address + ":%i" %(instance.port)
+        databaseinfra.save()
+        instance.databaseinfra = databaseinfra
+        instance.save()
+        LOG.info("Instance created!")
+        
+        return databaseinfra
+
+    @classmethod
+    def build_databaseinfra(self, infraname, plan, environment):
         databaseinfra = DatabaseInfra()
         databaseinfra.name = infraname
         databaseinfra.user  = 'root'
@@ -374,14 +375,8 @@ class CloudStackProvider(object):
         databaseinfra.environment = environment
         databaseinfra.capacity = 1
         databaseinfra.per_database_size_mbytes=0
-        databaseinfra.endpoint = instance.address + ":%i" %(instance.port)
         databaseinfra.save()
         LOG.info("DatabaseInfra created!")
-        
-        instance.databaseinfra = databaseinfra
-        instance.save()
-        LOG.info("Instance created!")
-        
         return databaseinfra
 
     @classmethod
