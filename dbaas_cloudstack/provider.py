@@ -262,7 +262,7 @@ class CloudStackProvider(object):
         
         return databaseinfra
 
-    classmethod
+    @classmethod
     def destroy_vm(self, environment, instance):
         project_id = self.get_credentials(environment= environment).project
 
