@@ -219,7 +219,7 @@ class CloudStackProvider(object):
             'IPMASTER': None,
             'IPWRITE': databasesinfraattr[0].ip,
             'IPREAD': databasesinfraattr[1].ip,
-            'MASTERPAIRNAME': name[0:20],
+            'MASTERPAIRNAME': infraname,
             'HOST01': instances[0].hostname,
             'HOST02': instances[1].hostname,
             'INSTANCE01': instances[0],
@@ -233,9 +233,6 @@ class CloudStackProvider(object):
 
             self.build_dependencies(contextdict=contextdict, host=contextdict['HOST02'], serverid=2, master=contextdict['HOST01'], 
                                          environment=environment, plan=plan, databaseinfra=databaseinfra, api=api)
-
-            #self.run_script(contextdict['HOST01'], contextdict['SECOND_SCRIPT_FILE'])
-            #self.run_script(contextdict['HOST02'], contextdict['SECOND_SCRIPT_FILE'])
             
             if self.run_script(contextdict['HOST01'], contextdict['SECOND_SCRIPT_FILE'])==0:
                 if self.run_script(contextdict['HOST02'], contextdict['SECOND_SCRIPT_FILE'])==0:
