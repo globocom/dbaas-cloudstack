@@ -202,6 +202,7 @@ class CloudStackProvider(object):
 
                     LOG.warning("Destroying cloudstack cluster instance!")
                     self.destroy_vm(environment= environment, instance=i)
+                    i.hostname.delete()
 
                 databaseinfra.delete()
                 return None
