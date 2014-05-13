@@ -64,6 +64,9 @@ class CloudStackProvider(object):
                 project_id = self.get_credentials(environment= environment).project
 
                 api = self.auth(environment= environment)
+                
+                self.remove_secondary_ips(api, database.databaseinfra)
+                
                 request = { 'projectid': '%s' % (project_id),
                             'id': '%s' % (host_attr.vm_id)
                           }
@@ -249,7 +252,7 @@ class CloudStackProvider(object):
                 LOG.info("Remove all database files")
                 self.run_script(instance.hostname, "/opt/dbaas/scripts/dbaas_deletedatabasefiles.sh")
                 StorageManager.destroy_disk(environment= environment, plan= plan, host= instance.hostname)
-
+                self.remove_secondary_ips(api, databaseinfra)
                 api.destroyVirtualMachine('POST',{'id': "%s" % (instance.hostname.cs_host_attributes.all()[0].vm_id)})
                 instance.hostname.delete()            
                 flipper = FlipperProvider()
@@ -264,6 +267,9 @@ class CloudStackProvider(object):
         project_id = self.get_credentials(environment= environment).project
 
         api = self.auth(environment= environment)
+        
+        self.remove_secondary_ips(api, instance.databaseinfra)
+        
         request = { 'projectid': '%s' % (project_id),
                               'id': '%s' % (instance.hostname.cs_host_attributes.all()[0].vm_id)
                             }
@@ -389,8 +395,9 @@ class CloudStackProvider(object):
         request['virtualmachineid'] = host_attr.vm_id
         response = api.listNics('GET',request)
         secondary_ip = response['nic'][0]['secondaryip'][0]['ipaddress']
+        cs_ip_id = response['nic'][0]['secondaryip'][0]['id']
         LOG.info('Secondary ip %s do host %s' % (secondary_ip, host_attr.host))
-        return secondary_ip
+        return secondary_ip, cs_ip_id
             
         
 
@@ -446,7 +453,7 @@ class CloudStackProvider(object):
             if  ssh_ok:
                 if cluster:                    
                     databaseinfraattr = DatabaseInfraAttr()
-                    databaseinfraattr.ip = self.reserve_ip(project_id= project_id, host_attr= host_attr, api= api)
+                    databaseinfraattr.ip , databaseinfraattr.cs_ip_id= self.reserve_ip(project_id= project_id, host_attr= host_attr, api= api)
                     databaseinfraattr.databaseinfra = databaseinfra
                     databaseinfraattr.save()
                 else:
@@ -460,6 +467,8 @@ class CloudStackProvider(object):
             LOG.warning("We could not create the VirtualMachine because %s" % e)
 
             if 'virtualmachine' in response:
+                if databaseinfraattr:
+                    self.remove_secondary_ips(api, databaseinfraattr.databaseinfra)
                 vm_id = response['virtualmachine'][0]['id']
                 LOG.info("Destroying VirtualMachine %s on cloudstack." % (vm_id))
                 api.destroyVirtualMachine('POST',{'id': "%s" % (vm_id)})
@@ -487,3 +496,12 @@ class CloudStackProvider(object):
             names['vms'].append(name + "-00%i-" % (x+1)+ stamp)
 
         return names
+
+    @classmethod
+    @transaction.commit_on_success 
+    def remove_secondary_ips(self, api, databaseinfra):
+        databaseinfraattrs = DatabaseInfraAttr.objects.filter(databaseinfra=databaseinfra)
+        for databaseinfraattr in databaseinfraattrs:
+            LOG.info("Removing secondary ip (id: %s)" % (databaseinfraattr.cs_ip_id))
+            api.removeIpFromNic('POST',{'id': databaseinfraattr.cs_ip_id})
+            databaseinfraattr.delete()
