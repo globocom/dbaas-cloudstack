@@ -6,6 +6,7 @@ Development Lead
 ----------------
 
 * Felippe da Motta Raposo <raposo.felippe@gmail.com>
+* Ricardo Dias <ricardo@ricardodias.org>
 
 Contributors
 ------------
