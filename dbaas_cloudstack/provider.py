@@ -30,6 +30,14 @@ class CloudStackProvider(object):
         return Credential.get_credentials(environment= environment, integration= integration)
 
     @classmethod
+    def get_vm_credentials(self, environment):
+        return Credential.get_credentials(environment= environment, integration= CredentialType.objects.get(type= CredentialType.VM))
+
+    @classmethod
+    def get_mysql_credentials(self, environment):
+        return Credential.get_credentials(environment= environment, integration= CredentialType.objects.get(type= CredentialType.MYSQL))
+
+    @classmethod
     def auth(self, environment):
         LOG.info("Conecting with cloudstack...")
         credentials = self.get_credentials(environment= environment)
@@ -191,9 +199,6 @@ class CloudStackProvider(object):
         names = self.gen_infra_name(name, 2)
         infraname = names["infra"]
         
-        #response = api.listVirtualMachines('GET',request)
-        #print response
-        
         databaseinfra = self.build_databaseinfra(infraname= infraname, plan= plan, environment= environment)
 
         instances = []
@@ -220,7 +225,7 @@ class CloudStackProvider(object):
         contextdict = {
             'EXPORTPATH': None,
             'SERVERID': None,
-            'DBPASSWORD': 'root',
+            'DBPASSWORD': self.get_mysql_credentials(environment=environment).password,
             'IPMASTER': None,
             'IPWRITE': databasesinfraattr[0].ip,
             'IPREAD': databasesinfraattr[1].ip,
@@ -372,10 +377,11 @@ class CloudStackProvider(object):
 
     @classmethod
     def build_databaseinfra(self, infraname, plan, environment):
+        mysql_credentials = self.get_mysql_credentials(environment=environment)
         databaseinfra = DatabaseInfra()
         databaseinfra.name = infraname
-        databaseinfra.user  = 'root'
-        databaseinfra.password = 'root'
+        databaseinfra.user  = mysql_credentials.user
+        databaseinfra.password = mysql_credentials.password
         databaseinfra.engine = plan.engine_type.engines.all()[0]
         databaseinfra.plan = plan
         databaseinfra.environment = environment
@@ -432,9 +438,10 @@ class CloudStackProvider(object):
                 host.cloud_portal_host = True
                 host.save()
                 LOG.info("Host created!")
-                    
-                host_attr.vm_user = 'root'
-                host_attr.vm_password = 'ChangeMe'
+                
+                vm_credentials = self.get_vm_credentials(environment=environment)
+                host_attr.vm_user = vm_credentials.user
+                host_attr.vm_password = vm_credentials.password
                 host_attr.host = host
                 host_attr.save()
                 LOG.info("Host attrs custom attributes created!")
