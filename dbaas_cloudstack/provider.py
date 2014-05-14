@@ -2,6 +2,8 @@
 from client import CloudStackClient
 from django.db import transaction
 from physical.models import DatabaseInfra, Instance, Host
+from logical.models import Credential as targetdbCredential
+from logical.models import Database
 from util import make_db_random_password
 from drivers import factory_for
 from .models import PlanAttr, HostAttr, DatabaseInfraAttr
@@ -9,6 +11,8 @@ from base64 import b64encode
 import logging
 from integrations.storage.manager import StorageManager
 from dbaas_flipper.provider import FlipperProvider
+from dbaas_credentials.credential import Credential
+from dbaas_credentials.models import CredentialType
 from django.template import Context, Template
 from time import sleep
 import paramiko
@@ -21,8 +25,6 @@ class CloudStackProvider(object):
     @classmethod
     def get_credentials(self, environment):
         LOG.info("Getting credentials...")
-        from dbaas_credentials.credential import Credential
-        from dbaas_credentials.models import CredentialType
         integration = CredentialType.objects.get(type= CredentialType.CLOUDSTACK)
 
         return Credential.get_credentials(environment= environment, integration= integration)
@@ -36,7 +38,6 @@ class CloudStackProvider(object):
     @classmethod
     @transaction.commit_on_success
     def destroy_instance(self, database, *args, **kwargs):
-        from logical.models import Credential, Database
 
         LOG.warning("Deleting the host on cloud portal...")
 
@@ -104,7 +105,7 @@ class CloudStackProvider(object):
             if database.credentials.exists():
                 for credential in database.credentials.all():
                     new_password = make_db_random_password()
-                    new_credential = Credential.objects.get(pk=credential.id)
+                    new_credential = targetdbCredential.objects.get(pk=credential.id)
                     new_credential.password = new_password
                     new_credential.save()
 
