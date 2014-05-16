@@ -2,6 +2,8 @@
 from client import CloudStackClient
 from django.db import transaction
 from physical.models import DatabaseInfra, Instance, Host
+from logical.models import Credential as targetdbCredential
+from logical.models import Database
 from util import make_db_random_password
 from drivers import factory_for
 from .models import PlanAttr, HostAttr, DatabaseInfraAttr
@@ -9,6 +11,8 @@ from base64 import b64encode
 import logging
 from integrations.storage.manager import StorageManager
 from dbaas_flipper.provider import FlipperProvider
+from dbaas_credentials.credential import Credential
+from dbaas_credentials.models import CredentialType
 from django.template import Context, Template
 from time import sleep
 import paramiko
@@ -21,11 +25,17 @@ class CloudStackProvider(object):
     @classmethod
     def get_credentials(self, environment):
         LOG.info("Getting credentials...")
-        from dbaas_credentials.credential import Credential
-        from dbaas_credentials.models import CredentialType
         integration = CredentialType.objects.get(type= CredentialType.CLOUDSTACK)
 
         return Credential.get_credentials(environment= environment, integration= integration)
+
+    @classmethod
+    def get_vm_credentials(self, environment):
+        return Credential.get_credentials(environment= environment, integration= CredentialType.objects.get(type= CredentialType.VM))
+
+    @classmethod
+    def get_mysql_credentials(self, environment):
+        return Credential.get_credentials(environment= environment, integration= CredentialType.objects.get(type= CredentialType.MYSQL))
 
     @classmethod
     def auth(self, environment):
@@ -36,7 +46,6 @@ class CloudStackProvider(object):
     @classmethod
     @transaction.commit_on_success
     def destroy_instance(self, database, *args, **kwargs):
-        from logical.models import Credential, Database
 
         LOG.warning("Deleting the host on cloud portal...")
 
@@ -104,7 +113,7 @@ class CloudStackProvider(object):
             if database.credentials.exists():
                 for credential in database.credentials.all():
                     new_password = make_db_random_password()
-                    new_credential = Credential.objects.get(pk=credential.id)
+                    new_credential = targetdbCredential.objects.get(pk=credential.id)
                     new_credential.password = new_password
                     new_credential.save()
 
@@ -190,9 +199,6 @@ class CloudStackProvider(object):
         names = self.gen_infra_name(name, 2)
         infraname = names["infra"]
         
-        #response = api.listVirtualMachines('GET',request)
-        #print response
-        
         databaseinfra = self.build_databaseinfra(infraname= infraname, plan= plan, environment= environment)
 
         instances = []
@@ -219,7 +225,7 @@ class CloudStackProvider(object):
         contextdict = {
             'EXPORTPATH': None,
             'SERVERID': None,
-            'DBPASSWORD': 'root',
+            'DBPASSWORD': self.get_mysql_credentials(environment=environment).password,
             'IPMASTER': None,
             'IPWRITE': databasesinfraattr[0].ip,
             'IPREAD': databasesinfraattr[1].ip,
@@ -371,10 +377,11 @@ class CloudStackProvider(object):
 
     @classmethod
     def build_databaseinfra(self, infraname, plan, environment):
+        mysql_credentials = self.get_mysql_credentials(environment=environment)
         databaseinfra = DatabaseInfra()
         databaseinfra.name = infraname
-        databaseinfra.user  = 'root'
-        databaseinfra.password = 'root'
+        databaseinfra.user  = mysql_credentials.user
+        databaseinfra.password = mysql_credentials.password
         databaseinfra.engine = plan.engine_type.engines.all()[0]
         databaseinfra.plan = plan
         databaseinfra.environment = environment
@@ -431,9 +438,10 @@ class CloudStackProvider(object):
                 host.cloud_portal_host = True
                 host.save()
                 LOG.info("Host created!")
-                    
-                host_attr.vm_user = 'root'
-                host_attr.vm_password = 'ChangeMe'
+                
+                vm_credentials = self.get_vm_credentials(environment=environment)
+                host_attr.vm_user = vm_credentials.user
+                host_attr.vm_password = vm_credentials.password
                 host_attr.host = host
                 host_attr.save()
                 LOG.info("Host attrs custom attributes created!")
