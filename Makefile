@@ -51,11 +51,10 @@ docs:
 	$(MAKE) -C docs html
 	open docs/_build/html/index.html
 
-release: clean
+release:
 	python setup.py sdist upload
-	python setup.py bdist_wheel upload
 
-release_globo: clean
+release_globo:
 	python setup.py sdist upload -r ipypiglobo
 	python setup.py sdist upload -r pypiglobo
 
