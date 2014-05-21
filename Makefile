@@ -16,7 +16,9 @@ clean: clean-build clean-pyc
 
 fake_deploy:
 	rm /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/provider.pyc
+	rm /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/models.pyc
 	cp dbaas_cloudstack/provider.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
+	cp dbaas_cloudstack/models.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
 
 clean-build:
 	rm -fr build/
