@@ -13,8 +13,8 @@ from integrations.storage.manager import StorageManager
 from dbaas_flipper.provider import FlipperProvider
 from dbaas_credentials.credential import Credential
 from dbaas_credentials.models import CredentialType
-from integrations.iaas.dnsapi.models import DatabaseInfraDNSList as dnsapi_DatabaseInfraDNSList, PlanAttr as dnsapi_PlanAttr
-from integrations.iaas.dnsapi.models import HOST as DNSAPI_HOST, INSTANCE as DNSAPI_INSTANCE, FLIPPER as DNSAPI_FLIPPER
+from dbaas_dnsapi.models import DatabaseInfraDNSList as dnsapi_DatabaseInfraDNSList, PlanAttr as dnsapi_PlanAttr
+from dbaas_dnsapi.models import HOST as DNSAPI_HOST, INSTANCE as DNSAPI_INSTANCE, FLIPPER as DNSAPI_FLIPPER
 
 from django.template import Context, Template
 from time import sleep
