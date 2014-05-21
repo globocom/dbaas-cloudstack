@@ -5,3 +5,4 @@ South==0.8.2
 paramiko==1.13.0
 dbaas_credentials==0.9.1
 dbaas_flipper==0.0.4
+dbaas_dnsapi==0.0.2

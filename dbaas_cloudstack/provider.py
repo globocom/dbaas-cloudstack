@@ -13,6 +13,9 @@ from integrations.storage.manager import StorageManager
 from dbaas_flipper.provider import FlipperProvider
 from dbaas_credentials.credential import Credential
 from dbaas_credentials.models import CredentialType
+from dbaas_dnsapi.models import DatabaseInfraDNSList as dnsapi_DatabaseInfraDNSList, PlanAttr as dnsapi_PlanAttr
+from dbaas_dnsapi.models import HOST as DNSAPI_HOST, INSTANCE as DNSAPI_INSTANCE, FLIPPER as DNSAPI_FLIPPER
+
 from django.template import Context, Template
 from time import sleep
 import paramiko
@@ -21,7 +24,37 @@ import socket
 LOG = logging.getLogger(__name__)
 
 class CloudStackProvider(object):
+    
+    @classmethod
+    #@transaction.commit_on_success
+    def add_dns_record(self, databaseinfra, name, ip, type):
+        planattr = dnsapi_PlanAttr.objects.get(dbaas_plan=databaseinfra.plan)
+        if planattr.dnsapi_database_sufix:
+            sufix = '.' + planattr.dnsapi_database_sufix
+        else:
+            sufix = ''
+        
+        if type == DNSAPI_HOST:
+            domain = planattr.dnsapi_vm_domain
+        else:
+            domain = planattr.dnsapi_database_domain
+            name += sufix
+        
+        databaseinfradnslist = dnsapi_DatabaseInfraDNSList(
+            databaseinfra = databaseinfra.id,
+            name = name,
+            domain = domain,
+            ip = ip,
+            type = type)
+        databaseinfradnslist.save()
+        
+        dnsname = '%s.%s' % (name, domain)
+        return dnsname
 
+    @classmethod
+    def del_dns_record(self, databaseinfra):
+        dnsapi_DatabaseInfraDNSList.objects.filter(databaseinfra=databaseinfra.id).delete()
+    
     @classmethod
     def get_credentials(self, environment):
         LOG.info("Getting credentials...")
@@ -132,7 +165,7 @@ class CloudStackProvider(object):
         client = paramiko.SSHClient()
         client.load_system_host_keys()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(host.hostname, username=username, password=password)
+        client.connect(host.address, username=username, password=password)
         stdin, stdout, stderr = client.exec_command(command)
         
         log_stdout = stdout.readlines()
@@ -141,7 +174,6 @@ class CloudStackProvider(object):
         
         LOG.info("Script return code: %s, stdout: %s, stderr %s" % (cod_ret_start, log_stdout, log_stderr))
         return cod_ret_start
-        
 
     @classmethod
     def check_ssh(self, host, retries=6, initial_wait=30, interval=40):
@@ -154,13 +186,13 @@ class CloudStackProvider(object):
         ssh.load_system_host_keys()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        LOG.info("Waiting %s seconds to check %s ssh connection..." % (initial_wait, host.hostname))
+        LOG.info("Waiting %s seconds to check %s ssh connection..." % (initial_wait, host.address))
         sleep(initial_wait)
 
         for x in range(retries):
             try:
-                LOG.info("Login attempt number %i on %s " % (x+1,host.hostname))
-                ssh.connect(host.hostname, port=port, 
+                LOG.info("Login attempt number %i on %s " % (x+1,host.address))
+                ssh.connect(host.address, port=port, 
                                     username=username, password=password, 
                                     timeout= None, allow_agent= True, 
                                     look_for_keys= True, compress= False
@@ -178,7 +210,6 @@ class CloudStackProvider(object):
                 sleep(30)
             finally:
                 ssh.close()
-
 
     @classmethod
     @transaction.commit_on_success
@@ -219,16 +250,19 @@ class CloudStackProvider(object):
                 instances.append(instance)
 
         databasesinfraattr = DatabaseInfraAttr.objects.filter(databaseinfra=databaseinfra)
-        infraattr0 = databasesinfraattr[0]
-        infraattr0.is_write = True
-        infraattr0.save()
+        if databasesinfraattr[0].is_write:
+            write_ip = databasesinfraattr[0].ip
+            read_ip = databasesinfraattr[1].ip
+        else:
+            write_ip = databasesinfraattr[1].ip
+            read_ip = databasesinfraattr[0].ip
         contextdict = {
             'EXPORTPATH': None,
             'SERVERID': None,
             'DBPASSWORD': self.get_mysql_credentials(environment=environment).password,
             'IPMASTER': None,
-            'IPWRITE': databasesinfraattr[0].ip,
-            'IPREAD': databasesinfraattr[1].ip,
+            'IPWRITE': write_ip,
+            'IPREAD': read_ip,
             'MASTERPAIRNAME': infraname,
             'HOST01': instances[0].hostname,
             'HOST02': instances[1].hostname,
@@ -303,8 +337,8 @@ class CloudStackProvider(object):
         flipper.create_flipper_dependencies(masterpairname= contextdict['MASTERPAIRNAME'], 
                                                                 readip= contextdict['IPREAD'], 
                                                                 writeip= contextdict['IPWRITE'], 
-                                                                hostname1= contextdict['HOST01'].hostname, 
-                                                                hostname2= contextdict['HOST02'].hostname, 
+                                                                hostname1= contextdict['HOST01'].address, 
+                                                                hostname2= contextdict['HOST02'].address, 
                                                                 environment= environment)
 
     @classmethod
@@ -316,7 +350,7 @@ class CloudStackProvider(object):
         api.updateVirtualMachine('POST', request)
             
         self.run_script(host, "/opt/dbaas/scripts/dbaas_userdata_script.sh")
-        LOG.info("Host %s is ready!" % (host.hostname))
+        LOG.info("Host %s is ready!" % (host.address))
 
     @classmethod
     @transaction.commit_on_success
@@ -332,11 +366,6 @@ class CloudStackProvider(object):
 
             if serverid==1:
                 self.build_flipper(contextdict= contextdict, environment= environment)
-
-            #databaseinfra.endpoint = writeip + ":%i" %(3306)
-            #databaseinfra.endpoint = contextdict['HOST01'].hostname + ":%i" %(3306)
-            databaseinfra.endpoint = contextdict['IPWRITE'] + ":%i" %(3306)
-            databaseinfra.save()
             
             contextdict['INSTANCE01'].databaseinfra = databaseinfra
             contextdict['INSTANCE01'].save()
@@ -362,12 +391,16 @@ class CloudStackProvider(object):
         infraname = names["infra"]
         vmname = names["vms"][0]
         
-        instance = self.create_vm(api, planattr, project_id, infraname, vmname, plan, environment, False, None)
+        databaseinfra =  self.build_databaseinfra(infraname= infraname, plan= plan, environment= environment)
+        
+        instance = self.create_vm(api, planattr, project_id, infraname, vmname, plan, environment, False, databaseinfra)
         if instance is None:
+            databaseinfra.delete()
             return None
         
-        databaseinfra =  self.build_databaseinfra(infraname= infraname, plan= plan, environment= environment)
+        
         databaseinfra.endpoint = instance.address + ":%i" %(instance.port)
+        databaseinfra.endpoint_dns = instance.dns + ":%i" %(instance.port)
         databaseinfra.save()
         instance.databaseinfra = databaseinfra
         instance.save()
@@ -405,9 +438,7 @@ class CloudStackProvider(object):
         cs_ip_id = response['nic'][0]['secondaryip'][0]['id']
         LOG.info('Secondary ip %s do host %s' % (secondary_ip, host_attr.host))
         return secondary_ip, cs_ip_id
-            
         
-
     @classmethod
     @transaction.commit_on_success    
     def create_vm(self, api, planattr, project_id, infraname, vmname, plan, environment, cluster, databaseinfra):
@@ -434,9 +465,11 @@ class CloudStackProvider(object):
 
                 response = api.listVirtualMachines('GET',request)
                 host = Host()
-                host.hostname = response['virtualmachine'][0]['nic'][0]['ipaddress']
+                host.address = response['virtualmachine'][0]['nic'][0]['ipaddress']
+                host.hostname = self.add_dns_record(databaseinfra=databaseinfra, name=vmname, ip=host.address, type=DNSAPI_HOST)
                 host.cloud_portal_host = True
                 host.save()
+
                 LOG.info("Host created!")
                 
                 vm_credentials = self.get_vm_credentials(environment=environment)
@@ -447,23 +480,37 @@ class CloudStackProvider(object):
                 LOG.info("Host attrs custom attributes created!")
 
                 instance = Instance()
-                instance.address = host.hostname
+                instance.address = host.address
+                instance.dns = self.add_dns_record(databaseinfra=databaseinfra, name=vmname, ip=instance.address, type=DNSAPI_INSTANCE)
                 instance.port = 3306
                 instance.is_active = True
                 instance.is_arbiter = False
                 instance.hostname = host
-            
+                
             else:
                 return None
 
             ssh_ok = self.check_ssh(host)
             
             if  ssh_ok:
-                if cluster:                    
+                if cluster:
                     databaseinfraattr = DatabaseInfraAttr()
+                    total = DatabaseInfraAttr.objects.filter(databaseinfra=databaseinfra).count()
+                    if total == 0:
+                        databaseinfraattr.is_write = True
+                        dnsname = databaseinfra.name
+                        
+                    else:
+                        databaseinfraattr.is_write = False
+                        dnsname = databaseinfra.name + '-r'                 
                     databaseinfraattr.ip , databaseinfraattr.cs_ip_id= self.reserve_ip(project_id= project_id, host_attr= host_attr, api= api)
                     databaseinfraattr.databaseinfra = databaseinfra
+                    databaseinfraattr.dns = self.add_dns_record(databaseinfra=databaseinfra, name=dnsname, ip=databaseinfraattr.ip, type=DNSAPI_FLIPPER)
                     databaseinfraattr.save()
+                    if total == 0:
+                        databaseinfra.endpoint = databaseinfraattr.ip + ":%i" %(3306)
+                        databaseinfra.endpoint_dns = databaseinfraattr.dns + ":%i" %(3306)
+                        databaseinfra.save()
                 else:
                     disk = self.build_nfsaas(environment=environment, plan=plan, host=host)
                     self.update_userdata(host= host, api= api, plan= plan, contextdict={"EXPORTPATH": disk['path']})
@@ -475,17 +522,17 @@ class CloudStackProvider(object):
             LOG.warning("We could not create the VirtualMachine because %s" % e)
 
             if 'virtualmachine' in response:
-                if databaseinfraattr:
+                if 'databaseinfraattr' in locals() and databaseinfraattr:
                     self.remove_secondary_ips(api, databaseinfraattr.databaseinfra)
                 vm_id = response['virtualmachine'][0]['id']
                 LOG.info("Destroying VirtualMachine %s on cloudstack." % (vm_id))
                 api.destroyVirtualMachine('POST',{'id': "%s" % (vm_id)})
                 LOG.info("VirtualMachine destroyed!")
-                if 'disk' in locals():
-                    if disk:
-                        LOG.info("Destroying storage...")
-                        StorageManager.destroy_disk(environment= environment, plan= plan, host= host)
-                        LOG.info("Storage destroyed!")
+                if 'disk' in locals() and disk:
+                    LOG.info("Destroying storage...")
+                    StorageManager.destroy_disk(environment= environment, plan= plan, host= host)
+                    LOG.info("Storage destroyed!")
+                self.del_dns_record(databaseinfra)
             else:
                LOG.warning("Something ocurred on cloudstack: %i, %s" % (response['errorcode'], response['errortext']))
             
