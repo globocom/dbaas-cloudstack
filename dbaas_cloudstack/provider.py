@@ -542,13 +542,14 @@ class CloudStackProvider(object):
     def gen_infra_name(self, name, qt):
         import time
         import re
-
+        
         stamp = str(time.time()).replace(".","")
         name = re.compile("[^\w']|_").sub("", name.lower())
+        name = name[:10]
         names = {"infra": name + stamp, "vms":[]}
 
         for x in range(qt):
-            names['vms'].append(name + "-00%i-" % (x+1)+ stamp)
+            names['vms'].append(name + "-0%i-" % (x+1)+ stamp)
 
         return names
 
