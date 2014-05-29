@@ -272,10 +272,10 @@ class CloudStackProvider(object):
         }
 
         try:
-            self.build_dependencies(contextdict=contextdict, host=contextdict['HOST01'], serverid=1, master=contextdict['HOST02'], 
+            self.build_dependencies(contextdict=contextdict, host=contextdict['HOST01'], serverid=1, master=contextdict['HOST02'].address, 
                                          environment=environment, plan=plan, databaseinfra=databaseinfra, api=api)
 
-            self.build_dependencies(contextdict=contextdict, host=contextdict['HOST02'], serverid=2, master=contextdict['HOST01'], 
+            self.build_dependencies(contextdict=contextdict, host=contextdict['HOST02'], serverid=2, master=contextdict['HOST01'].address, 
                                          environment=environment, plan=plan, databaseinfra=databaseinfra, api=api)
             
             if self.run_script(contextdict['HOST01'], contextdict['SECOND_SCRIPT_FILE'])==0:
@@ -543,6 +543,7 @@ class CloudStackProvider(object):
         import time
         import re
 
+        name = name[:10]
         stamp = str(time.time()).replace(".","")
         name = re.compile("[^\w']|_").sub("", name.lower())
         names = {"infra": name + stamp, "vms":[]}
