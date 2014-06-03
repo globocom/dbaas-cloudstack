@@ -69,6 +69,11 @@ class CloudStackProvider(object):
     @classmethod
     def get_mysql_credentials(self, environment):
         return Credential.get_credentials(environment= environment, integration= CredentialType.objects.get(type= CredentialType.MYSQL))
+    
+    @classmethod
+    def get_dns_credentials(self, environment):
+        return Credential.get_credentials(environment= environment, integration= CredentialType.objects.get(type= CredentialType.DNSAPI))
+
 
     @classmethod
     def auth(self, environment):
@@ -554,6 +559,44 @@ class CloudStackProvider(object):
             names['vms'].append(name + "-0%i-" % (x+1)+ stamp)
 
         return names
+
+    @classmethod
+    def check_nslookup(self, databaseinfra):
+        import subprocess
+        import re
+        dns_names = []
+        
+        dns_credential = self.get_dns_credentials(environment= databaseinfra.environment)
+
+        for attr in databaseinfra.cs_dbinfra_attributes.all():
+            dns_names.append(attr.dns)
+
+        for instance in databaseinfra.instances.all():
+            dns_names.append(instance.dns)
+            dns_names.append(instance.hostname.hostname)
+
+        LOG.info("Cheking dns availability for %s" % dns_names)
+
+        for dns in dns_names:
+            LOG.info("Cheking %s availability" % dns)
+            indexes = []
+            retries = 0
+            try:
+                while len(indexes) < 2:
+                    if retries <= 50:
+                        retries+=1
+                        LOG.info("Cheking dns %i..." % retries)
+                        result = subprocess.Popen("nslookup %s %s" % (dns, dns_credential.project), stdout=subprocess.PIPE, shell=True)
+                        (output, err) = result.communicate()
+                        indexes = [i for i, x in enumerate(output.split('\n')) if re.match(r'\W*' + "Address" + r'\W*', x)]
+                        LOG.info("Nslookup output: %s" % output)
+                        sleep(10)
+                    else:
+                        return
+                LOG.info("%s is available!" % dns)
+            except Exception, e:
+                LOG.warn("We caught an exception %s" % e)
+
 
     @classmethod
     @transaction.commit_on_success 
