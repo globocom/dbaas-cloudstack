@@ -583,7 +583,7 @@ class CloudStackProvider(object):
             retries = 0
             try:
                 while len(indexes) < 2:
-                    if retries <= 50:
+                    if retries <= 90:
                         retries+=1
                         LOG.info("Cheking dns %i..." % retries)
                         result = subprocess.Popen("nslookup %s %s" % (dns, dns_credential.project), stdout=subprocess.PIPE, shell=True)
