@@ -71,4 +71,6 @@ class CloudStackClient(SignedApiCall):
             data = self._http_post(self.value, self.query)
         # The response is of the format {commandresponse: actual-data}
         key = command.lower() + "response"
+        if key == 'addiptonicresponse':
+            key = 'addiptovmnicresponse'
         return json.loads(data)[key]

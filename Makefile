@@ -10,8 +10,15 @@ help:
 	@echo "docs - generate Sphinx HTML documentation, including API docs"
 	@echo "release - package and upload a release"
 	@echo "sdist - package"
+	@echo "fake_deploy - copy files to local site-packages"
 
 clean: clean-build clean-pyc
+
+fake_deploy:
+	rm /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/provider.pyc
+	rm /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/models.pyc
+	cp dbaas_cloudstack/provider.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
+	cp dbaas_cloudstack/models.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
 
 clean-build:
 	rm -fr build/
@@ -46,9 +53,12 @@ docs:
 	$(MAKE) -C docs html
 	open docs/_build/html/index.html
 
-release: clean
+release:
 	python setup.py sdist upload
-	python setup.py bdist_wheel upload
+
+release_globo:
+	python setup.py sdist upload -r ipypiglobo
+	python setup.py sdist upload -r pypiglobo
 
 sdist: clean
 	python setup.py sdist

@@ -36,7 +36,8 @@ setup(
     ],
     include_package_data=True,
     install_requires=[
-        'dbaas_credentials'
+        'dbaas_credentials',
+        'dbaas_flipper'
     ],
     license="BSD",
     zip_safe=False,
