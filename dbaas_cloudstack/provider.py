@@ -11,6 +11,7 @@ from base64 import b64encode
 import logging
 from integrations.storage.manager import StorageManager
 from dbaas_flipper.provider import FlipperProvider
+from dbaas_nfsaas.models import HostAttr as NfsHostAttr
 from dbaas_credentials.credential import Credential
 from dbaas_credentials.models import CredentialType
 from dbaas_dnsapi.models import DatabaseInfraDNSList as dnsapi_DatabaseInfraDNSList, PlanAttr as dnsapi_PlanAttr
@@ -84,66 +85,11 @@ class CloudStackProvider(object):
     @classmethod
     @transaction.commit_on_success
     def destroy_instance(self, database, *args, **kwargs):
-
-        LOG.warning("Deleting the host on cloud portal...")
-
         if database.is_in_quarantine:
-            super(Database, database).delete(*args, **kwargs)  # Call the "real" delete() method.
-
-            plan = database.databaseinfra.plan
-            environment = database.databaseinfra.environment
-
-            hosts = database.databaseinfra.instances.all()
-            posic = 0
-            for hostobject in hosts:
-                posic += 1
-                host = hostobject.hostname
-                host_attr = HostAttr.objects.filter(host= host)[0]
+            super(Database, database).delete(*args, **kwargs)
+            LOG.warning("Deleting the host on cloudstack...")
+            self.destroy_dependencies(databaseinfra= database.databaseinfra)
             
-                LOG.info("Remove all database files")
-                self.run_script(host, "/opt/dbaas/scripts/dbaas_deletedatabasefiles.sh")
-            
-            
-                LOG.info("Destroying storage (environment:%s, plan: %s, host:%s)!" % (environment, plan, host))
-                StorageManager.destroy_disk(environment=environment, plan=plan, host=host)
-            
-            
-                project_id = self.get_credentials(environment= environment).project
-
-                api = self.auth(environment= environment)
-                
-                self.remove_secondary_ips(api, database.databaseinfra)
-                
-                request = { 'projectid': '%s' % (project_id),
-                            'id': '%s' % (host_attr.vm_id)
-                          }
-                response = api.destroyVirtualMachine('GET',request)
-            
-                try:
-                    if 'jobid' in response:
-                        LOG.warning("VirtualMachine destroyed!")
-
-                        flipper = FlipperProvider()
-                        flipper.destroy_flipper_dependencies(masterpairname=database.databaseinfra.name, environment=environment)
-
-                        instance = Instance.objects.get(hostname=host)
-                        
-                        if posic == len(hosts):
-                            databaseinfra = DatabaseInfra.objects.get(instances=instance)
-                            databaseinfra.delete()
-                            LOG.info("DatabaseInfra destroyed!")
-                        
-                        instance.delete()
-                        LOG.info("Instance destroyed!")
-                        host_attr.delete()
-                        LOG.info("Host custom cloudstack attrs destroyed!")
-                        host.delete()
-                        LOG.info("Host destroyed!")
-                        paramiko.HostKeys().clear()
-                        LOG.info("Removing key from known hosts!")
-                        LOG.info("Finished!")
-                except Exception, e:
-                    LOG.warning("We could not destroy the VirtualMachine.  %s :(" % e)
         else:
             LOG.warning("Putting database %s in quarantine" % database.name)
             database.is_in_quarantine=True
@@ -159,18 +105,74 @@ class CloudStackProvider(object):
                     instance.update_user(new_credential)
 
     @classmethod
-    def run_script(self, host, command):
-        host_attr = HostAttr.objects.filter(host= host)[0]
+    def destroy_dependencies(self, databaseinfra):
+        try :
+            plan = databaseinfra.plan
+            environment = databaseinfra.environment
 
-        username = host_attr.vm_user
-        password = host_attr.vm_password
-        
+            instances = list(databaseinfra.instances.all())
+            LOG.debug("DatabaseInfra %s instances %s" % (databaseinfra, instances))
+            for instance in instances:
+                host = instance.hostname
+                host_attr = HostAttr.objects.filter(host= host)[0]
+
+                self.destroy_nfsaas(host= host, host_attr= host_attr, environment= environment,plan= plan)
+                self.destroy_vm(environment= environment, instance= instance)
+                FlipperProvider().destroy_flipper_dependencies(masterpairname=databaseinfra.name, environment=environment)
+
+                if instances.index(instance) == len(instances)-1:
+                    self.destroy_dbaas_dependencies(databaseinfra= databaseinfra)
+                    
+        except Exception, e:
+            LOG.warning("We could not destroy the infractructure.  %s :(" % e)
+    
+    @classmethod
+    def destroy_nfsaas(self, host, host_attr, environment, plan):
+        LOG.info("Remove all database files")
+        self.run_script(host= host, host_attr= host_attr, command= "/opt/dbaas/scripts/dbaas_deletedatabasefiles.sh")
+    
+        LOG.info("Destroying storage (environment:%s, plan: %s, host:%s)!" % (environment, plan, host))
+        StorageManager.destroy_disk(environment=environment, plan=plan, host=host)
+
+    @classmethod
+    def destroy_dbaas_dependencies(self, databaseinfra):
+        for instance in databaseinfra.instances.all():
+            host= instance.hostname
+
+            NfsHostAttr.objects.filter(host= host).delete()
+            LOG.info("Host custom nfsaas attrs destroyed!")
+
+            HostAttr.objects.filter(host= host).delete()
+            LOG.info("Host custom cloudstack attrs destroyed!")
+
+            host.delete()
+            LOG.info("Host destroyed!")
+
+            instance.delete()
+            LOG.info("Instance destroyed!")
+
+        if databaseinfra.plan.is_ha:
+            databaseinfra.cs_dbinfra_attributes.all().delete()
+            LOG.info("DatabaseInfra custom cloudstack attributes detroyed!")
+
+        databaseinfra.delete()
+        LOG.info("DatabaseInfra destroyed!")
+
+        paramiko.HostKeys().clear()
+        LOG.info("Removing key from known hosts!")
+        LOG.info("Finished!")
+
+    @classmethod
+    def run_script(self, host, command, host_attr= None):
         LOG.info("Running script [%s] on host %s" % (command, host))
-        
+
+        if not host_attr:
+            host_attr= HostAttr.objects.filter(host= host)[0]
+
         client = paramiko.SSHClient()
         client.load_system_host_keys()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(host.address, username=username, password=password)
+        client.connect(host.address, username=host_attr.vm_user, password=host_attr.vm_password)
         stdin, stdout, stderr = client.exec_command(command)
         
         log_stdout = stdout.readlines()
@@ -309,16 +311,17 @@ class CloudStackProvider(object):
 
     @classmethod
     def destroy_vm(self, environment, instance):
-        project_id = self.get_credentials(environment= environment).project
-
         api = self.auth(environment= environment)
-        
         self.remove_secondary_ips(api, instance.databaseinfra)
-        
-        request = { 'projectid': '%s' % (project_id),
-                              'id': '%s' % (instance.hostname.cs_host_attributes.all()[0].vm_id)
-                            }
-        api.destroyVirtualMachine('GET',request)
+
+        project_id = self.get_credentials(environment= environment).project
+        request = { 
+                          'projectid': '%s' % (project_id),
+                          'id': '%s' % (instance.hostname.cs_host_attributes.all()[0].vm_id)
+                        }
+
+        LOG.warning("VirtualMachine destroyed!")
+        return api.destroyVirtualMachine('GET',request)
 
 
     @classmethod
