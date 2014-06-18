@@ -25,7 +25,7 @@ class CloudStackProvider(object):
 
     def destroy_virtual_machine(self, project_id, environment, vm_id):
         try:
-            request = { 
+            request = {
                               'projectid': project_id,
                               'id': vm_id
                             }
@@ -52,7 +52,7 @@ class CloudStackProvider(object):
             LOG.info(str(contextdict))
 
             context = Context(contextdict)
-            
+
             template = Template(userdata)
             return template.render(context)
         except Exception, e:
@@ -62,7 +62,7 @@ class CloudStackProvider(object):
 
     def update_userdata(self, vm_id , contextdict, userdata):
         try:
-            request = { 'id': vm_id, 
+            request = { 'id': vm_id,
                               'userdata': b64encode(self.build_user_data(contextdict= contextdict, userdata= userdata))
                             }
             self.api.updateVirtualMachine('POST', request)
@@ -74,22 +74,22 @@ class CloudStackProvider(object):
 
     def reserve_ip(self, project_id, vm_id, wait=20):
         try:
-            request = {'projectid': '%s' % (project_id), 'id':'%s' % (vm_id) }
+            request = {'projectid': project_id, 'id': vm_id }
             response = self.api.listVirtualMachines('GET',request)
-            
+
             nicid = response['virtualmachine'][0]['nic'][0]['id']
             self.api.addIpToNic('GET', {'nicid': nicid})
 
-            sleep(wait)    
-            
+            sleep(wait)
+
             request['virtualmachineid'] = vm_id
             response = self.api.listNics('GET',request)
-            
+
             secondary_ip = response['nic'][0]['secondaryip'][0]['ipaddress']
             cs_ip_id = response['nic'][0]['secondaryip'][0]['id']
-            
+
             LOG.info('Secondary ip %s for vm %s' % (secondary_ip, vm_id))
-            return secondary_ip, cs_ip_id
+            return {'secondary_ip': secondary_ip, 'cs_ip_id': cs_ip_id}
 
         except Exception, e:
             LOG.warning("We could reserve ip because %s" % e)
@@ -109,7 +109,7 @@ class CloudStackProvider(object):
                     return True
                 elif job['jobstatus']==2 or (attempt == retries-1):
                     return False
-        
+
         except Exception, e:
             LOG.warning("We caught an exception: %s ." % (e))
             return None
@@ -117,8 +117,8 @@ class CloudStackProvider(object):
 
     def deploy_virtual_machine(self, planattr, project_id, vmname, ):
         try:
-            request = { 'serviceofferingid': planattr.serviceofferingid, 
-                  'templateid': planattr.templateid, 
+            request = { 'serviceofferingid': planattr.serviceofferingid,
+                  'templateid': planattr.templateid,
                   'zoneid': planattr.zoneid,
                   'networkids': planattr.networkid,
                   'projectid': project_id,
@@ -132,7 +132,8 @@ class CloudStackProvider(object):
                 query_async= self.query_async_job( jobid= response['jobid'])
                 if query_async==True:
                     LOG.info("VirtualMachine created!")
-                    return response
+                    request = {'projectid': project_id, 'id': response['id'] }
+                    return self.api.listVirtualMachines('GET',request)
                 else:
                     return False
             else:
@@ -142,10 +143,10 @@ class CloudStackProvider(object):
         except Exception, e:
             LOG.warning("We could not create the VirtualMachine because %s" % e)
 
-            if 'id' in response:
-                LOG.info("Destroying VirtualMachine %s on cloudstack." % response['id'])
-                self.api.destroyVirtualMachine('POST',{'id': response['id']})
-                LOG.info("VirtualMachine destroyed!")
+            # if 'id' in response:c
+            #     LOG.info("Destroying VirtualMachine %s on cloudstack." % response['id'])
+            #     self.api.destroyVirtualMachine('POST',{'id': response['id']})
+            #     LOG.info("VirtualMachine destroyed!")
             return None
 
 
@@ -154,6 +155,7 @@ class CloudStackProvider(object):
             for cloudstack_ip_id in cloudstack_ip_ids:
                 LOG.info("Removing secondary ip (id: %s)" % (cloudstack_ip_id))
                 self.api.removeIpFromNic('POST',{'id': cloudstack_ip_id})
+            return True
         except Exception, e:
             LOG.warning("We could remove the secondary ip because %s" % e)
             return None
