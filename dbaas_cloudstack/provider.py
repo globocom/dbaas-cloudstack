@@ -39,7 +39,7 @@ class CloudStackProvider(object):
                 else:
                     return False
             else:
-                LOG.warning("Something ocurred on cloudstack: %i, %s" % (response['errorcode'], response['errortext']))
+                LOG.warning("Something ocurred on cloudstack: %s, %s" % (response['errorcode'], response['errortext']))
                 return None
 
         except Exception, e:
@@ -96,13 +96,13 @@ class CloudStackProvider(object):
             return None
 
 
-    def query_async_job(self, jobid, retries=20, wait=0):
+    def query_async_job(self, jobid, retries=90, wait=10):
         try:
             for attempt in range(0, retries):
                 if attempt>0 and wait>0:
                     sleep(wait)
 
-                LOG.info("Cheking async job... attempt number %i..." % attempt + 1)
+                LOG.info("Cheking async job... attempt number %s..." % str(attempt+1))
 
                 job = self.api.queryAsyncJobResult('POST', {'jobid': jobid})
                 if job['jobstatus']==1:
@@ -137,7 +137,7 @@ class CloudStackProvider(object):
                 else:
                     return False
             else:
-                LOG.warning("Something ocurred on cloudstack: %i, %s" % (response['errorcode'], response['errortext']))
+                LOG.warning("Something ocurred on cloudstack: %s, %s" % (response['errorcode'], response['errortext']))
                 return None
 
         except Exception, e:
@@ -150,11 +150,10 @@ class CloudStackProvider(object):
             return None
 
 
-    def remove_secondary_ips(self, cloudstack_ip_ids):
+    def remove_secondary_ips(self, cloudstack_ip_id):
         try:
-            for cloudstack_ip_id in cloudstack_ip_ids:
-                LOG.info("Removing secondary ip (id: %s)" % (cloudstack_ip_id))
-                self.api.removeIpFromNic('POST',{'id': cloudstack_ip_id})
+            LOG.info("Removing secondary ip (id: %s)" % (cloudstack_ip_id))
+            self.api.removeIpFromNic('POST',{'id': cloudstack_ip_id})
             return True
         except Exception, e:
             LOG.warning("We could remove the secondary ip because %s" % e)
