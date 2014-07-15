@@ -18,29 +18,20 @@ class CloudStackOffering(BaseModel):
     weaker = models.BooleanField(verbose_name=_("Is the weaker offering"), default=False)
 
 
-class CloudStackTemplate(BaseModel):
-    templateid = models.CharField(verbose_name=_("Template ID"),
-                                                 max_length=100,
-                                                 help_text="Cloud Stack Template ID")
-    name = models.CharField(verbose_name=_("Name"),
-                                                 max_length=100,
-                                                 help_text="Cloud Stack Template Name")
-
-class CloudStackZone(BaseModel):
+class CloudStackBundle(BaseModel):
         zoneid = models.CharField(verbose_name=_("Zone ID"),
                                                  max_length=100,
                                                  help_text="Cloud Stack Template ID")
-        name = models.CharField(verbose_name=_("Name"),
+        templateid = models.CharField(verbose_name=_("Template ID"),
                                                  max_length=100,
-                                                 help_text="Cloud Stack Zone Name")
-
-class CloudStackNetwork(BaseModel):
+                                                 help_text="Cloud Stack Template ID")
         networkid = models.CharField(verbose_name=_("Network ID"),
                                  max_length=100,
                                  help_text="Cloud Stack Network ID")
         name = models.CharField(verbose_name=_("Name"),
                                                  max_length=100,
-                                                 help_text="Cloud Stack Network Name")
+                                                 help_text="Cloud Stack Zone Name")
+
 
 class HostAttr(BaseModel):
 
@@ -79,13 +70,9 @@ class PlanAttr(BaseModel):
 
     serviceofferingid = models.ManyToManyField(CloudStackOffering)
 
-    templateid = models.ManyToManyField(CloudStackTemplate)
 
-    zoneid = models.ManyToManyField(CloudStackZone)
+    bundle = models.ManyToManyField(CloudStackBundle)
 
-    networkid = models.ManyToManyField(CloudStackNetwork)
-
-    plan = models.ForeignKey('physical.Plan', related_name="cs_plan_attributes")
     userdata = models.TextField(verbose_name=_("User Data"),
                                 help_text="Script to create config files")
 
@@ -102,7 +89,5 @@ class PlanAttr(BaseModel):
 simple_audit.register(PlanAttr)
 simple_audit.register(HostAttr)
 simple_audit.register(DatabaseInfraAttr)
-simple_audit.register(CloudStackNetwork)
-simple_audit.register(CloudStackZone)
-simple_audit.register(CloudStackTemplate)
+simple_audit.register(CloudStackBundle)
 simple_audit.register(CloudStackOffering)
