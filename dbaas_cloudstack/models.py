@@ -70,6 +70,7 @@ class PlanAttr(BaseModel):
 
     serviceofferingid = models.ManyToManyField(CloudStackOffering)
 
+    plan = models.ForeignKey('physical.Plan', related_name="cs_plan_attributes")
 
     bundle = models.ManyToManyField(CloudStackBundle)
 
