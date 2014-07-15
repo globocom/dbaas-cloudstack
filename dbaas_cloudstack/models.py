@@ -5,7 +5,10 @@ from util.models import BaseModel
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from django_extensions.db.fields.encrypted import EncryptedCharField
+from django.core.exceptions import MultipleObjectsReturned
+import logging
 
+LOG = logging.getLogger(__name__)
 
 
 class CloudStackOffering(BaseModel):
@@ -86,9 +89,44 @@ class PlanAttr(BaseModel):
         )
         verbose_name_plural = "CloudStack Custom Plan Attributes"
 
+class LastUsedBundle(BaseModel):
+
+    plan = models.ForeignKey('physical.Plan', related_name="cs_history_plan")
+
+    bundle = models.ForeignKey('CloudStackBundle', related_name="cs_history_bundle")
+
+    class Meta:
+        unique_together = (("plan", "bundle"),)
+
+    def __unicode__(self):
+        return "Last bundle: %s used for plan: plan %s" % (self.bundle, self.plan)
+
+
+    @classmethod
+    def get_next_bundle(cls, plan, bundle):
+        try:
+            obj, created = cls.objects.get_or_create(plan=plan,
+                                                                                               defaults={'plan': plan,
+                                                                                                               'bundle': bundle[0],
+                                                                                                              },
+                                                                                               )
+
+        except MultipleObjectsReturned as e:
+            LOG.warn("Multiple objects returned: %s" % e)
+            raise
+        else:
+
+            if not created:
+                next_bundle = (i for i,v in enumerate(bundle) if v!=obj.bundle).next()
+                obj.bundle = bundle[next_bundle]
+                obj.save()
+
+            return obj.bundle
+
 
 simple_audit.register(PlanAttr)
 simple_audit.register(HostAttr)
 simple_audit.register(DatabaseInfraAttr)
 simple_audit.register(CloudStackBundle)
 simple_audit.register(CloudStackOffering)
+simple_audit.register(LastUsedBundle)
