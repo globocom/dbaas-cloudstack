@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
+import logging
+
 import simple_audit
 from util.models import BaseModel
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from django_extensions.db.fields.encrypted import EncryptedCharField
 from django.core.exceptions import MultipleObjectsReturned
-import logging
+
 
 LOG = logging.getLogger(__name__)
 
@@ -106,10 +108,10 @@ class LastUsedBundle(BaseModel):
     def get_next_bundle(cls, plan, bundle):
         try:
             obj, created = cls.objects.get_or_create(plan=plan,
-                                                                                               defaults={'plan': plan,
-                                                                                                               'bundle': bundle[0],
-                                                                                                              },
-                                                                                               )
+                                                     defaults={'plan': plan,
+                                                               'bundle': bundle[0],
+                                                     },
+            )
 
         except MultipleObjectsReturned as e:
             LOG.warn("Multiple objects returned: %s" % e)
