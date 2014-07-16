@@ -115,12 +115,12 @@ class CloudStackProvider(object):
             return None
 
 
-    def deploy_virtual_machine(self, planattr, project_id, vmname, ):
+    def deploy_virtual_machine(self, offering, bundle, project_id, vmname, ):
         try:
-            request = { 'serviceofferingid': planattr.serviceofferingid,
-                  'templateid': planattr.templateid,
-                  'zoneid': planattr.zoneid,
-                  'networkids': planattr.networkid,
+            request = { 'serviceofferingid': offering,
+                  'templateid': bundle.templateid,
+                  'zoneid': bundle.zoneid,
+                  'networkids': bundle.networkid,
                   'projectid': project_id,
                   'name': vmname,
             }
