@@ -25,18 +25,18 @@ class CloudStackOffering(BaseModel):
 
 
 class CloudStackBundle(BaseModel):
-		zoneid = models.CharField(verbose_name=_("Zone ID"),
-												 max_length=100,
-												 help_text="Cloud Stack Template ID")
-		templateid = models.CharField(verbose_name=_("Template ID"),
-												 max_length=100,
-												 help_text="Cloud Stack Template ID")
-		networkid = models.CharField(verbose_name=_("Network ID"),
-								 max_length=100,
-								 help_text="Cloud Stack Network ID")
-		name = models.CharField(verbose_name=_("Name"),
-												 max_length=100,
-												 help_text="Cloud Stack Zone Name")
+	zoneid = models.CharField(verbose_name=_("Zone ID"),
+											 max_length=100,
+											 help_text="Cloud Stack Template ID")
+	templateid = models.CharField(verbose_name=_("Template ID"),
+											 max_length=100,
+											 help_text="Cloud Stack Template ID")
+	networkid = models.CharField(verbose_name=_("Network ID"),
+							 max_length=100,
+							 help_text="Cloud Stack Network ID")
+	name = models.CharField(verbose_name=_("Name"),
+											 max_length=100,
+											 help_text="Cloud Stack Zone Name")
 
 
 class HostAttr(BaseModel):
