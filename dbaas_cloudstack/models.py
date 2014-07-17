@@ -96,6 +96,15 @@ class PlanAttr(BaseModel):
 		else:
 			return offering
 
+	def get_stronger_offering(self):
+		try:
+			offering = self.serviceofferingid.get(weaker=False)
+		except (ObjectDoesNotExist,MultipleObjectsReturned) as e:
+			LOG.warn(e)
+			return None
+		else:
+			return offering
+
 	class Meta:
 		permissions = (
 			("view_csplanattribute", "Can view cloud stack plan custom attributes"),
