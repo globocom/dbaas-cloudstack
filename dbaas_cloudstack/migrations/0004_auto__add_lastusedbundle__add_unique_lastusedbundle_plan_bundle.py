@@ -3,6 +3,7 @@ import datetime
 from south.db import db
 from south.v2 import SchemaMigration
 from django.db import models
+from os.path import abspath, dirname
 
 
 class Migration(SchemaMigration):

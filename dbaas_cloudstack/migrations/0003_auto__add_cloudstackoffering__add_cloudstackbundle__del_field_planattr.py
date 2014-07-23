@@ -3,6 +3,7 @@ import datetime
 from south.db import db
 from south.v2 import SchemaMigration
 from django.db import models
+from os.path import abspath, dirname
 
 
 class Migration(SchemaMigration):
@@ -50,6 +51,10 @@ class Migration(SchemaMigration):
 		))
 		db.create_unique(m2m_table_name, ['planattr_id', 'cloudstackbundle_id'])
 
+		#Executing script to migrate data
+		sql_migration_file =  "{}/migration_003_up.sql".format(abspath(dirname(__file__)))
+		db.execute(open(sql_migration_file).read())
+
 		# Deleting plan_attr old attrs
 		db.delete_column(u'dbaas_cloudstack_planattr', 'serviceofferingid')
 		db.delete_column(u'dbaas_cloudstack_planattr', 'templateid')
@@ -58,18 +63,6 @@ class Migration(SchemaMigration):
 
 
 	def backwards(self, orm):
-		# Deleting model 'CloudStackOffering'
-		db.delete_table(u'dbaas_cloudstack_cloudstackoffering')
-
-		# Deleting model 'CloudStackBundle'
-		db.delete_table(u'dbaas_cloudstack_cloudstackbundle')
-
-		# Removing M2M table for field serviceofferingid on 'PlanAttr'
-		db.delete_table(db.shorten_name(u'dbaas_cloudstack_planattr_serviceofferingid'))
-
-		# Removing M2M table for field bundle on 'PlanAttr'
-		db.delete_table(db.shorten_name(u'dbaas_cloudstack_planattr_bundle'))
-
 		# Adding plan_attrs old attributes
 		db.add_column(u'dbaas_cloudstack_planattr', 'serviceofferingid',
                       self.gf('django.db.models.fields.CharField')(max_length=100),
@@ -86,6 +79,24 @@ class Migration(SchemaMigration):
 		db.add_column(u'dbaas_cloudstack_planattr', 'networkid',
                       self.gf('django.db.models.fields.CharField')(max_length=100),
                       )
+
+		#Executing script to migrate data
+		sql_migration_file =  "{}/migration_003_down.sql".format(abspath(dirname(__file__)))
+		db.execute(open(sql_migration_file).read())
+
+		# Removing M2M table for field serviceofferingid on 'PlanAttr'
+		db.delete_table(db.shorten_name(u'dbaas_cloudstack_planattr_serviceofferingid'))
+
+		# Removing M2M table for field bundle on 'PlanAttr'
+		db.delete_table(db.shorten_name(u'dbaas_cloudstack_planattr_bundle'))
+
+		# Deleting model 'CloudStackOffering'
+		db.delete_table(u'dbaas_cloudstack_cloudstackoffering')
+
+		# Deleting model 'CloudStackBundle'
+		db.delete_table(u'dbaas_cloudstack_cloudstackbundle')
+
+
 
 	models = {
 		u'dbaas_cloudstack.cloudstackbundle': {
