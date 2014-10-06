@@ -200,14 +200,11 @@ class CloudStackProvider(object):
             LOG.warning("We could start the virtualmachine because %s" % e)
             return None
 
-    def list_service_offerings(self, vm_id=None):
+    def list_service_offerings_for_vm(self, vm_id):
         try:
             LOG.info("Listing service offerings for vm (id: %s)" % (vm_id))
 
-            if vm_id:
-                response = self.api.listServiceOfferings('GET',{'id': vm_id})
-            else:
-                response = self.api.listServiceOfferings('GET',)
+            response = self.api.listServiceOfferings('GET',{'virtualmachineid': vm_id})
 
             return response
         except Exception, e:
