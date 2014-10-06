@@ -214,7 +214,7 @@ class CloudStackProvider(object):
     def change_service_for_vm(self, vm_id, serviceofferingid):
         try:
             LOG.info("Changing service offering (id: %s) for virtualmachine, (id: %s)" % (serviceofferingid,vm_id))
-            response = self.api.changeServiceForVirtualMachine('POST',{'id': vm_id, 'serviceofferingid': serviceofferingid})
+            response = self.api.scaleVirtualMachine('POST',{'id': vm_id, 'serviceofferingid': serviceofferingid})
 
             if 'jobid' in response:
                 query_async= self.query_async_job( jobid= response['jobid'])
