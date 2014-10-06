@@ -158,3 +158,78 @@ class CloudStackProvider(object):
         except Exception, e:
             LOG.warning("We could remove the secondary ip because %s" % e)
             return None
+
+    def stop_virtual_machine(self, vm_id):
+        try:
+            LOG.info("Stoping Virtualmachine (id: %s)" % (vm_id))
+            response = self.api.stopVirtualMachine('POST',{'id': vm_id})
+
+            if 'jobid' in response:
+                query_async= self.query_async_job( jobid= response['jobid'])
+                if query_async==True:
+                    LOG.info("VirtualMachine stoped!")
+                    return True
+                else:
+                    return False
+            else:
+                LOG.warning("Something ocurred on cloudstack: %s, %s" % (response['errorcode'], response['errortext']))
+                return None
+
+        except Exception, e:
+            LOG.warning("We could stop the virtualmachine because %s" % e)
+            return None
+
+
+    def start_virtual_machine(self, vm_id):
+        try:
+            LOG.info("Stoping Virtualmachine (id: %s)" % (vm_id))
+            response = self.api.startVirtualMachine('POST',{'id': vm_id})
+
+            if 'jobid' in response:
+                query_async= self.query_async_job( jobid= response['jobid'])
+                if query_async==True:
+                    LOG.info("VirtualMachine started!")
+                    return True
+                else:
+                    return False
+            else:
+                LOG.warning("Something ocurred on cloudstack: %s, %s" % (response['errorcode'], response['errortext']))
+                return None
+
+        except Exception, e:
+            LOG.warning("We could start the virtualmachine because %s" % e)
+            return None
+
+    def list_service_offerings(self, vm_id=None):
+        try:
+            LOG.info("Listing service offerings for vm (id: %s)" % (vm_id))
+
+            if vm_id:
+                response = self.api.listServiceOfferings('GET',{'id': vm_id})
+            else:
+                response = self.api.listServiceOfferings('GET',)
+
+            return response
+        except Exception, e:
+            LOG.warning("We could retrieve the service offering %s" % e)
+            return None
+
+    def change_service_for_vm(self, vm_id, serviceofferingid):
+        try:
+            LOG.info("Changing service offering (id: %s) for virtualmachine, (id: %s)" % (serviceofferingid,vm_id))
+            response = self.api.changeServiceForVirtualMachine('POST',{'id': vm_id, 'serviceofferingid': serviceofferingid})
+
+            if 'jobid' in response:
+                query_async= self.query_async_job( jobid= response['jobid'])
+                if query_async==True:
+                    LOG.info("Service Offering changed!")
+                    return True
+                else:
+                    return False
+            else:
+                LOG.warning("Something ocurred on cloudstack: %s, %s" % (response['errorcode'], response['errortext']))
+                return None
+
+        except Exception, e:
+            LOG.warning("We could change the service offering because %s" % e)
+            return None
