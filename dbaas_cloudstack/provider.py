@@ -10,8 +10,9 @@ LOG = logging.getLogger(__name__)
 
 class CloudStackProvider(object):
 
-    def __init__(self, credentials):
+    def __init__(self, credentials, networkapi_credentials = None):
         self.api = self.authenticate(credentials= credentials)
+        self.networkapi_credentials = networkapi_credentials
 
 
     def authenticate(self, credentials):
@@ -229,4 +230,87 @@ class CloudStackProvider(object):
 
         except Exception, e:
             LOG.warning("We could change the service offering because %s" % e)
+            return None
+
+    def register_networkapi_equipment(self, equipment_name):
+        from networkapiclient.Equipamento import Equipamento
+        
+        try:
+            LOG.info("Register database infra as equipment on network api...")
+            equipmentAPI = Equipamento(networkapi_url = self.networkapi_credentials.endpoint,
+                                       user = self.networkapi_credentials.user,
+                                       password = self.networkapi_credentials.password)
+            
+            equipment = equipmentAPI.inserir(name = equipment_name,
+                                             id_equipment_type = self.networkapi_credentials.get_parameter_by_name('id_equipment_type'),
+                                             id_model = self.networkapi_credentials.get_parameter_by_name('id_model'),
+                                             id_group = self.networkapi_credentials.get_parameter_by_name('id_group') )
+            
+            LOG.info("equipment = %s " % repr(equipment))
+            return equipment['equipamento']['id']
+        except Exception, e:
+            LOG.warning("We could not register networkapi equipment because %s" % e)
+            return None
+        
+    def remove_networkapi_equipment(self, equipment_id):
+        from networkapiclient.Equipamento import Equipamento
+        
+        try:
+            LOG.info("Removing networkapi equipment [ id = %s ]" % equipment_id)
+            equipmentAPI = Equipamento(networkapi_url = self.networkapi_credentials.endpoint,
+                                       user = self.networkapi_credentials.user,
+                                       password = self.networkapi_credentials.password)
+            equipmentAPI.remover(id_equipamento = equipment_id)
+            return True
+        except Exception, e:
+            LOG.warning("We could not remove networkapi equipment because %s" % e)
+            return None
+
+    def register_networkapi_ip(self, equipment_id, ip, ip_desc):
+        from networkapiclient.Ip import Ip
+        from networkapiclient.Vlan import Vlan
+        from networkapiclient.Pagination import Pagination
+        
+        try:
+            LOG.info("Register ip on network api...")
+            LOG.info("equipment_id=%s, ip=%s, ip_desc=%s" % (equipment_id, ip, ip_desc))
+            
+            network = '.'.join(ip.split('.')[:-1]) + '.0/24'
+            
+            pagination = Pagination(0, 25, "", "", "")
+            vlanAPI = Vlan(networkapi_url = self.networkapi_credentials.endpoint,
+                           user = self.networkapi_credentials.user,
+                           password = self.networkapi_credentials.password)
+            
+            vlans = vlanAPI.find_vlans('','',0,'','',network,0,0,'',pagination)
+            vlan = vlans['vlan'][0]['redeipv4'][0]['id']
+            LOG.info('Vlan = %s', vlan)
+            
+            ipAPI = Ip(networkapi_url = self.networkapi_credentials.endpoint,
+                       user = self.networkapi_credentials.user,
+                       password = self.networkapi_credentials.password)
+            
+            networkapi_ip = ipAPI.save_ipv4(ip4 = ip,
+                                            id_equip = equipment_id,
+                                            descricao = ip_desc,
+                                            id_net = vlan)
+            
+            LOG.info("networkapi_ip = %s " % repr(networkapi_ip))
+            return networkapi_ip['ip']['id']
+        except Exception, e:
+            LOG.warning("We could not register networkapi ip because %s" % e)
+            return None
+
+    def remove_networkapi_ip(self, equipment_id, ip_id):
+        from networkapiclient.Equipamento import Equipamento
+        
+        try:
+            LOG.info("Removing networkapi equipment [ id = %s ]" % equipment_id)
+            equipmentAPI = Equipamento(networkapi_url = self.networkapi_credentials.endpoint,
+                                       user = self.networkapi_credentials.user,
+                                       password = self.networkapi_credentials.password)
+            equipmentAPI.remover_ip(id_equipamento = equipment_id, id_ip = ip_id)
+            return True
+        except Exception, e:
+            LOG.warning("We could not remove networkapi equipment because %s" % e)
             return None
