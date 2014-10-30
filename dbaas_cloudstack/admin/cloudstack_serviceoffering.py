@@ -4,6 +4,6 @@ from django.contrib import admin
 
 
 class CloudStackServiceofferingAdmin(admin.ModelAdmin):
-    search_fields = ("name",)
-    list_display = ("serviceofferingid", "name", )
+    search_fields = ("name", "region")
+    list_display = ("serviceofferingid", "name", "region")
     save_on_top = True
