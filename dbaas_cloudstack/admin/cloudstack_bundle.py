@@ -4,6 +4,6 @@ from django.contrib import admin
 
 
 class CloudStackBundleAdmin(admin.ModelAdmin):
-    search_fields = ("name",)
-    list_display = ("name","zoneid", "templateid", "networkid")
+    search_fields = ("name", "region")
+    list_display = ("name","zoneid", "templateid", "networkid", "region")
     save_on_top = True
