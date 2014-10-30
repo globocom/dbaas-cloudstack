@@ -1,4 +1,4 @@
-insert into dbaas_cloudstack_databaseinfraoffering (created_at, updated_at, offering, databaseinfra)
+insert into dbaas_cloudstack_databaseinfraoffering (created_at, updated_at, offering_id, databaseinfra_id)
 select now(), now(), t4.id, t1.id
 from physical_databaseinfra t1
      join dbaas_cloudstack_planattr t2 on (t1.plan_id = t2.plan_id)
