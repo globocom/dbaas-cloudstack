@@ -22,6 +22,7 @@ class CloudStackOffering(BaseModel):
 										 max_length=100,
 										 help_text="Cloud Stack Offering name")
 	weaker = models.BooleanField(verbose_name=_("Is the weaker offering"), default=False)
+	region = models.ForeignKey('CloudStackRegion', related_name="cs_offering_region")
 
 
 class CloudStackBundle(BaseModel):
@@ -37,7 +38,15 @@ class CloudStackBundle(BaseModel):
 	name = models.CharField(verbose_name=_("Name"),
 											 max_length=100,
 											 help_text="Cloud Stack Zone Name")
+	region = models.ForeignKey('CloudStackRegion', related_name="cs_bundle_region")
 
+
+class CloudStackRegion(BaseModel):
+	name = models.CharField(verbose_name=_("Name"),
+				 max_length=100,
+				 help_text="Cloud Stack Region Name")
+
+	environment = models.ForeignKey('physical.Environment', related_name="cs_environment_region")
 
 class HostAttr(BaseModel):
 
@@ -55,6 +64,21 @@ class HostAttr(BaseModel):
 		)
 		verbose_name_plural = "CloudStack Custom Host Attributes"
 
+
+class DatabaseInfraOffering(BaseModel):
+
+	offering = models.ForeignKey('CloudStackOffering', related_name="cs_offering")
+	databaseinfra = models.ForeignKey('physical.DatabaseInfra', related_name="cs_dbinfra_offering")
+
+	def __unicode__(self):
+		return "Cloud Stack databaseinfra offering %s for %s" % (self.databaseinfra, self.offering)
+
+	class Meta:
+		permissions = (
+			("view_csdatabaseinfraoffering", "Can view cloud stack databaseinfra offering"),
+		)
+		verbose_name_plural = "CloudStack DatabaseInfra Offering"
+
 class DatabaseInfraAttr(BaseModel):
 
 	ip = models.CharField(verbose_name=_("Cloud Stack reserved ip"), max_length=255, blank=True, null=True)
@@ -64,6 +88,7 @@ class DatabaseInfraAttr(BaseModel):
 	databaseinfra = models.ForeignKey('physical.DatabaseInfra', related_name="cs_dbinfra_attributes")
 	networkapi_equipment_id = models.CharField(verbose_name=_("NetworkAPI Equipment id"), max_length=255, blank=True, null=True)
 	networkapi_ip_id = models.CharField(verbose_name=_("NetworkAPI ip id"), max_length=255, blank=True, null=True)
+
 
 	def __unicode__(self):
 		return "Cloud Stack reserved ip for %s" % (self.databaseinfra)
@@ -154,3 +179,5 @@ simple_audit.register(DatabaseInfraAttr)
 simple_audit.register(CloudStackBundle)
 simple_audit.register(CloudStackOffering)
 simple_audit.register(LastUsedBundle)
+simple_audit.register(CloudStackRegion)
+simple_audit.register(DatabaseInfraOffering)
