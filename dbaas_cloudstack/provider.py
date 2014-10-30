@@ -160,6 +160,7 @@ class CloudStackProvider(object):
             LOG.warning("We could remove the secondary ip because %s" % e)
             return None
 
+
     def stop_virtual_machine(self, vm_id):
         try:
             LOG.info("Stoping Virtualmachine (id: %s)" % (vm_id))
@@ -201,6 +202,20 @@ class CloudStackProvider(object):
             LOG.warning("We could start the virtualmachine because %s" % e)
             return None
 
+
+    def reboot_virtual_machine(self, vm_id):
+        stoped = self.stop_virtual_machine(vm_id)
+
+        if not stoped:
+            return False
+
+        started = self.start_virtual_machine(vm_id)
+
+        if not started:
+            return False
+
+        return True
+
     def list_service_offerings_for_vm(self, vm_id):
         try:
             LOG.info("Listing service offerings for vm (id: %s)" % (vm_id))
@@ -232,29 +247,47 @@ class CloudStackProvider(object):
             LOG.warning("We could change the service offering because %s" % e)
             return None
 
+    def change_offering_and_reboot(self, vm_id, serviceofferingid):
+        stoped = self.stop_virtual_machine(vm_id)
+
+        if not stoped:
+            return False
+
+        offering_changed = self.change_service_for_vm(vm_id, serviceofferingid)
+
+        if not offering_changed:
+            return False
+
+        started = self.start_virtual_machine(vm_id)
+
+        if not started:
+            return False
+
+        return True
+
     def register_networkapi_equipment(self, equipment_name):
         from networkapiclient.Equipamento import Equipamento
-        
+
         try:
             LOG.info("Register database infra as equipment on network api...")
             equipmentAPI = Equipamento(networkapi_url = self.networkapi_credentials.endpoint,
                                        user = self.networkapi_credentials.user,
                                        password = self.networkapi_credentials.password)
-            
+
             equipment = equipmentAPI.inserir(name = equipment_name,
                                              id_equipment_type = self.networkapi_credentials.get_parameter_by_name('id_equipment_type'),
                                              id_model = self.networkapi_credentials.get_parameter_by_name('id_model'),
                                              id_group = self.networkapi_credentials.get_parameter_by_name('id_group') )
-            
+
             LOG.info("equipment = %s " % repr(equipment))
             return equipment['equipamento']['id']
         except Exception, e:
             LOG.warning("We could not register networkapi equipment because %s" % e)
             return None
-        
+
     def remove_networkapi_equipment(self, equipment_id):
         from networkapiclient.Equipamento import Equipamento
-        
+
         try:
             LOG.info("Removing networkapi equipment [ id = %s ]" % equipment_id)
             equipmentAPI = Equipamento(networkapi_url = self.networkapi_credentials.endpoint,
@@ -270,31 +303,31 @@ class CloudStackProvider(object):
         from networkapiclient.Ip import Ip
         from networkapiclient.Vlan import Vlan
         from networkapiclient.Pagination import Pagination
-        
+
         try:
             LOG.info("Register ip on network api...")
             LOG.info("equipment_id=%s, ip=%s, ip_desc=%s" % (equipment_id, ip, ip_desc))
-            
+
             network = '.'.join(ip.split('.')[:-1]) + '.0/24'
-            
+
             pagination = Pagination(0, 25, "", "", "")
             vlanAPI = Vlan(networkapi_url = self.networkapi_credentials.endpoint,
                            user = self.networkapi_credentials.user,
                            password = self.networkapi_credentials.password)
-            
+
             vlans = vlanAPI.find_vlans('','',0,'','',network,0,0,'',pagination)
             vlan = vlans['vlan'][0]['redeipv4'][0]['id']
             LOG.info('Vlan = %s', vlan)
-            
+
             ipAPI = Ip(networkapi_url = self.networkapi_credentials.endpoint,
                        user = self.networkapi_credentials.user,
                        password = self.networkapi_credentials.password)
-            
+
             networkapi_ip = ipAPI.save_ipv4(ip4 = ip,
                                             id_equip = equipment_id,
                                             descricao = ip_desc,
                                             id_net = vlan)
-            
+
             LOG.info("networkapi_ip = %s " % repr(networkapi_ip))
             return networkapi_ip['ip']['id']
         except Exception, e:
@@ -303,7 +336,7 @@ class CloudStackProvider(object):
 
     def remove_networkapi_ip(self, equipment_id, ip_id):
         from networkapiclient.Equipamento import Equipamento
-        
+
         try:
             LOG.info("Removing networkapi equipment [ id = %s ]" % equipment_id)
             equipmentAPI = Equipamento(networkapi_url = self.networkapi_credentials.endpoint,
