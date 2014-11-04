@@ -21,6 +21,7 @@ class BaseModel(models.Model):
             if hasattr(self, 'region'):
                 result = result + " - %s" % self.region
 
+            return result
         elif hasattr(self, '__unicode__'):
             result = self.__unicode__()
 
