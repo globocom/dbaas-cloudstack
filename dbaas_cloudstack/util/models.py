@@ -16,7 +16,12 @@ class BaseModel(models.Model):
     def __unicode__(self):
 
         if hasattr(self, 'name'):
-            return "%s" % self.name
+            result = "%s" % self.name
+
+            if hasattr(self, 'region'):
+                result = result + " - %s" % self.region
+
         elif hasattr(self, '__unicode__'):
-            #return super(BaseModel, self).__unicode__()
-            return self.__unicode__()
+            result = self.__unicode__()
+
+        return result
