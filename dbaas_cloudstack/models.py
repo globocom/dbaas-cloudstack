@@ -3,7 +3,7 @@ from __future__ import absolute_import, unicode_literals
 import logging
 
 import simple_audit
-from dbaas_cloudstack.util import BaseModel
+from dbaas_cloudstack.util.models import BaseModel
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from django_extensions.db.fields.encrypted import EncryptedCharField
