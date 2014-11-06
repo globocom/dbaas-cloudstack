@@ -109,6 +109,7 @@ class CloudStackProvider(object):
                 if job['jobstatus']==1:
                     return True
                 elif job['jobstatus']==2 or (attempt == retries-1):
+                    LOG.warning("Something ocurred on cloudstack: {}".format(job))
                     return False
 
         except Exception, e:
@@ -184,7 +185,7 @@ class CloudStackProvider(object):
 
     def start_virtual_machine(self, vm_id):
         try:
-            LOG.info("Stoping Virtualmachine (id: %s)" % (vm_id))
+            LOG.info("Starting Virtualmachine (id: %s)" % (vm_id))
             response = self.api.startVirtualMachine('POST',{'id': vm_id})
 
             if 'jobid' in response:
