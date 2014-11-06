@@ -173,13 +173,9 @@ class LastUsedBundle(BaseModel):
             return obj.bundle
 
 class CloudStackPack(BaseModel):
-    init_script = models.TextField(verbose_name=_("Init Script"),
+    script = models.TextField(verbose_name=_("Init Script"),
                                 help_text="Script to init database")
-    stop_script = models.TextField(verbose_name=_("Stop Script"),
-                                help_text="Script to stop database")
-
     offering = models.ForeignKey('CloudStackOffering', related_name="cs_offering_packs")
-    is_ha  = models.BooleanField(verbose_name=_("Is pack HA"), default=False)
     engine_type = models.ForeignKey('physical.EngineType', verbose_name=_("Engine Type"), related_name='cs_packs')
     name = models.CharField(verbose_name=_("Name"),
                  max_length=100,
