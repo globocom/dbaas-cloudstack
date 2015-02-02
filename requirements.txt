@@ -1,9 +1,9 @@
-django==1.5.5
+Django==1.6.10
 wheel==0.22.0
 django-simple-audit==0.1.14
-South==0.8.2
+South==1.0
 paramiko==1.13.0
-dbaas_credentials==0.9.1
-dbaas_flipper==0.0.4
-dbaas_dnsapi==0.0.2
+dbaas_credentials==1.0.4
+dbaas_flipper==0.0.7
+dbaas_dnsapi==0.0.5
 django-services==0.0.8
