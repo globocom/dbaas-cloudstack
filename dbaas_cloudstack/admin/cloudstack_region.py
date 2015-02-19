@@ -4,6 +4,6 @@ from django.contrib import admin
 
 
 class CloudStackRegionAdmin(admin.ModelAdmin):
-    search_fields = ("name","environment")
+    search_fields = ("name","environment__name")
     list_display = ("name","environment",)
     save_on_top = True
