@@ -117,7 +117,8 @@ class CloudStackProvider(object):
             return None
 
 
-    def deploy_virtual_machine(self, offering, bundle, project_id, vmname, ):
+    def deploy_virtual_machine(self, offering, bundle,
+        project_id, vmname, affinity_group_id=None ):
         try:
             request = { 'serviceofferingid': offering,
                   'templateid': bundle.templateid,
@@ -126,6 +127,10 @@ class CloudStackProvider(object):
                   'projectid': project_id,
                   'name': vmname,
             }
+
+            if affinity_group_id:
+                request['affinitygroupids'] = [affinity_group_id,]
+
 
             response = self.api.deployVirtualMachine('POST',request)
             LOG.info(" CloudStack response %s" % (response))
