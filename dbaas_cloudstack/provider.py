@@ -26,10 +26,7 @@ class CloudStackProvider(object):
 
     def destroy_virtual_machine(self, project_id, environment, vm_id):
         try:
-            request = {
-                              'projectid': project_id,
-                              'id': vm_id
-                            }
+            request = {'id': vm_id}
 
             response = self.api.destroyVirtualMachine('GET',request)
             if 'jobid' in response:
@@ -117,8 +114,7 @@ class CloudStackProvider(object):
             return None
 
 
-    def deploy_virtual_machine(self, offering, bundle,
-        project_id, vmname):
+    def deploy_virtual_machine(self, offering, bundle, project_id, vmname, affinity_group_id=None):
         try:
             request = { 'serviceofferingid': offering,
                   'templateid': bundle.templateid,
@@ -127,6 +123,10 @@ class CloudStackProvider(object):
                   'projectid': project_id,
                   'name': vmname,
             }
+            
+            if affinity_group_id:
+                request['affinitygroupids'] = affinity_group_id
+                del request['projectid']
 
             response = self.api.deployVirtualMachine('POST',request)
             LOG.info(" CloudStack response %s" % (response))
@@ -135,7 +135,7 @@ class CloudStackProvider(object):
                 query_async= self.query_async_job( jobid= response['jobid'])
                 if query_async==True:
                     LOG.info("VirtualMachine created!")
-                    request = {'projectid': project_id, 'id': response['id'] }
+                    request = {'id': response['id'] }
                     return self.api.listVirtualMachines('GET',request)
                 else:
                     return False
@@ -145,11 +145,6 @@ class CloudStackProvider(object):
 
         except Exception, e:
             LOG.warning("We could not create the VirtualMachine because %s" % e)
-
-            # if 'id' in response:c
-            #     LOG.info("Destroying VirtualMachine %s on cloudstack." % response['id'])
-            #     self.api.destroyVirtualMachine('POST',{'id': response['id']})
-            #     LOG.info("VirtualMachine destroyed!")
             return None
 
 
