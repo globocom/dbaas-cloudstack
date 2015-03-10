@@ -135,7 +135,10 @@ class CloudStackProvider(object):
                 query_async= self.query_async_job( jobid= response['jobid'])
                 if query_async==True:
                     LOG.info("VirtualMachine created!")
-                    request = {'id': response['id'] }
+                    if affinity_group_id:
+                        request = {'id': response['id'] }
+                    else:
+                        request = {'projectid': project_id, 'id': response['id'] }
                     return self.api.listVirtualMachines('GET',request)
                 else:
                     return False
