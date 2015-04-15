@@ -40,6 +40,7 @@ class CloudStackBundle(BaseModel):
                                              max_length=100,
                                              help_text="Cloud Stack Zone Name")
     region = models.ForeignKey('CloudStackRegion', related_name="cs_bundle_region", null=True)
+    equivalent_bundle = models.ForeignKey('CloudStackBundle', null=True, blank= True)
 
 
 class CloudStackRegion(BaseModel):
