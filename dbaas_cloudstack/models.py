@@ -23,7 +23,7 @@ class CloudStackOffering(BaseModel):
                                          help_text="Cloud Stack Offering name")
     weaker = models.BooleanField(verbose_name=_("Is the weaker offering"), default=False)
     region = models.ForeignKey('CloudStackRegion', related_name="cs_offering_region", null=True)
-    equivalent_offering = models.ForeignKey('CloudStackRegion', null=True, blank= False)
+    equivalent_offering = models.ForeignKey('CloudStackRegion', null=True, blank= True)
 
 
 class CloudStackBundle(BaseModel):
