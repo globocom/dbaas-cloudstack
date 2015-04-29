@@ -88,6 +88,7 @@ class DatabaseInfraAttr(BaseModel):
     databaseinfra = models.ForeignKey('physical.DatabaseInfra', related_name="cs_dbinfra_attributes")
     networkapi_equipment_id = models.CharField(verbose_name=_("NetworkAPI Equipment id"), max_length=255, blank=True, null=True)
     networkapi_ip_id = models.CharField(verbose_name=_("NetworkAPI ip id"), max_length=255, blank=True, null=True)
+    equivalent_dbinfraattr = models.ForeignKey('DatabaseInfraAttr', null=True, blank= True, on_delete=models.SET_NULL)
 
 
     def __unicode__(self):
