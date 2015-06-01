@@ -109,16 +109,20 @@ class PlanAttr(BaseModel):
     bundle = models.ManyToManyField(CloudStackBundle)
 
     userdata = models.TextField(verbose_name=_("Initialization Script"),
-                                help_text="Script to create initialization files")
+                                help_text="Script to create initialization files",
+                                null=False, blank=True)
 
     configuration_script = models.TextField(verbose_name=_("Configuration Script"),
-                                help_text="Script to configure database insatnces")
+                                help_text="Script to configure database insatnces",
+                                null=False, blank=True)
 
     start_database_script = models.TextField(verbose_name=_("Start database Script"),
-                                help_text="Script to start database instances")
+                                help_text="Script to start database instances",
+                                null=False, blank=True)
 
     start_replication_script = models.TextField(verbose_name=_("Start replication Script"),
-                                help_text="Script to start database replication")
+                                help_text="Script to start database replication",
+                                null=True)
 
     def __unicode__(self):
         return "Cloud Stack plan custom Attributes (plan=%s)" % (self.plan)
