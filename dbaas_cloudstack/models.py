@@ -122,7 +122,7 @@ class PlanAttr(BaseModel):
 
     start_replication_script = models.TextField(verbose_name=_("Start replication Script"),
                                 help_text="Script to start database replication",
-                                null=True)
+                                null=True, blank=True)
 
     def __unicode__(self):
         return "Cloud Stack plan custom Attributes (plan=%s)" % (self.plan)
