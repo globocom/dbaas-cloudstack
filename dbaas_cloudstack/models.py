@@ -108,8 +108,17 @@ class PlanAttr(BaseModel):
 
     bundle = models.ManyToManyField(CloudStackBundle)
 
-    userdata = models.TextField(verbose_name=_("User Data"),
-                                help_text="Script to create config files")
+    userdata = models.TextField(verbose_name=_("Initialization Script"),
+                                help_text="Script to create initialization files")
+
+    configuration_script = models.TextField(verbose_name=_("Configuration Script"),
+                                help_text="Script to configure database insatnces")
+
+    start_database_script = models.TextField(verbose_name=_("Start database Script"),
+                                help_text="Script to start database instances")
+
+    start_replication_script = models.TextField(verbose_name=_("Start replication Script"),
+                                help_text="Script to start database replication")
 
     def __unicode__(self):
         return "Cloud Stack plan custom Attributes (plan=%s)" % (self.plan)
@@ -138,6 +147,10 @@ class PlanAttr(BaseModel):
             ("view_csplanattribute", "Can view cloud stack plan custom attributes"),
         )
         verbose_name_plural = "CloudStack Custom Plan Attributes"
+
+    @property
+    def initialization_script(self,):
+        return self.userdata
 
 class LastUsedBundle(BaseModel):
 
