@@ -15,38 +15,28 @@ LOG = logging.getLogger(__name__)
 
 
 class CloudStackOffering(BaseModel):
-    serviceofferingid = models.CharField(verbose_name=_("Offering ID"),
-                                         max_length=100,
-                                         help_text="Cloud Stack Offering ID")
-    name = models.CharField(verbose_name=_("Name"),
-                                         max_length=100,
-                                         help_text="Cloud Stack Offering name")
+    serviceofferingid = models.CharField(verbose_name=_("Offering ID"), max_length=100, help_text="Cloud Stack Offering ID")
+    name = models.CharField(verbose_name=_("Name"), max_length=100, help_text="Cloud Stack Offering name")
     weaker = models.BooleanField(verbose_name=_("Is the weaker offering"), default=False)
     region = models.ForeignKey('CloudStackRegion', related_name="cs_offering_region", null=True)
-    equivalent_offering = models.ForeignKey('CloudStackOffering', null=True, blank= True, on_delete=models.SET_NULL)
+    equivalent_offering = models.ForeignKey('CloudStackOffering', null=True, blank=True, on_delete=models.SET_NULL)
+    cpus = models.IntegerField(verbose_name=_("Number of CPUs"), default=0,)
+    memory_size_mb = models.IntegerField(verbose_name=_("Memory (MB)"), default=0,)
 
 
 class CloudStackBundle(BaseModel):
-    zoneid = models.CharField(verbose_name=_("Zone ID"),
-                                             max_length=100,
-                                             help_text="Cloud Stack Template ID")
-    templateid = models.CharField(verbose_name=_("Template ID"),
-                                             max_length=100,
-                                             help_text="Cloud Stack Template ID")
-    networkid = models.CharField(verbose_name=_("Network ID"),
-                             max_length=100,
-                             help_text="Cloud Stack Network ID")
-    name = models.CharField(verbose_name=_("Name"),
-                                             max_length=100,
-                                             help_text="Cloud Stack Zone Name")
+    zoneid = models.CharField(verbose_name=_("Zone ID"), max_length=100, help_text="Cloud Stack Template ID")
+    templateid = models.CharField(verbose_name=_("Template ID"), max_length=100, help_text="Cloud Stack Template ID")
+    networkid = models.CharField(verbose_name=_("Network ID"), max_length=100, help_text="Cloud Stack Network ID")
+    name = models.CharField(verbose_name=_("Name"), max_length=100, help_text="Cloud Stack Zone Name")
     region = models.ForeignKey('CloudStackRegion', related_name="cs_bundle_region", null=True)
 
+
 class CloudStackRegion(BaseModel):
-    name = models.CharField(verbose_name=_("Name"),
-                 max_length=100,
-                 help_text="Cloud Stack Region Name")
+    name = models.CharField(verbose_name=_("Name"), max_length=100, help_text="Cloud Stack Region Name")
 
     environment = models.ForeignKey('physical.Environment', related_name="cs_environment_region")
+
 
 class HostAttr(BaseModel):
 
@@ -79,6 +69,7 @@ class DatabaseInfraOffering(BaseModel):
         )
         verbose_name_plural = "CloudStack DatabaseInfra Offering"
 
+
 class DatabaseInfraAttr(BaseModel):
 
     ip = models.CharField(verbose_name=_("Cloud Stack reserved ip"), max_length=255, blank=True, null=True)
@@ -88,8 +79,7 @@ class DatabaseInfraAttr(BaseModel):
     databaseinfra = models.ForeignKey('physical.DatabaseInfra', related_name="cs_dbinfra_attributes")
     networkapi_equipment_id = models.CharField(verbose_name=_("NetworkAPI Equipment id"), max_length=255, blank=True, null=True)
     networkapi_ip_id = models.CharField(verbose_name=_("NetworkAPI ip id"), max_length=255, blank=True, null=True)
-    equivalent_dbinfraattr = models.ForeignKey('DatabaseInfraAttr', null=True, blank= True, on_delete=models.SET_NULL)
-
+    equivalent_dbinfraattr = models.ForeignKey('DatabaseInfraAttr', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __unicode__(self):
         return "Cloud Stack reserved ip for %s" % (self.databaseinfra)
@@ -99,6 +89,7 @@ class DatabaseInfraAttr(BaseModel):
             ("view_csdatabaseinfraattribute", "Can view cloud stack databaseinfra attributes"),
         )
         verbose_name_plural = "CloudStack Custom DatabaseInfra Attributes"
+
 
 class PlanAttr(BaseModel):
 
@@ -113,25 +104,24 @@ class PlanAttr(BaseModel):
                                 null=False, blank=True)
 
     configuration_script = models.TextField(verbose_name=_("Configuration Script"),
-                                help_text="Script to configure database insatnces",
-                                null=False, blank=True)
+                                            help_text="Script to configure database insatnces",
+                                            null=False, blank=True)
 
     start_database_script = models.TextField(verbose_name=_("Start database Script"),
-                                help_text="Script to start database instances",
-                                null=False, blank=True)
+                                             help_text="Script to start database instances",
+                                             null=False, blank=True)
 
     start_replication_script = models.TextField(verbose_name=_("Start replication Script"),
-                                help_text="Script to start database replication",
-                                null=True, blank=True)
+                                                help_text="Script to start database replication",
+                                                null=True, blank=True)
 
     def __unicode__(self):
         return "Cloud Stack plan custom Attributes (plan=%s)" % (self.plan)
 
-
     def get_weaker_offering(self):
         try:
             offering = self.serviceofferingid.get(weaker=True)
-        except (ObjectDoesNotExist,MultipleObjectsReturned) as e:
+        except (ObjectDoesNotExist, MultipleObjectsReturned) as e:
             LOG.warn(e)
             return None
         else:
@@ -140,7 +130,7 @@ class PlanAttr(BaseModel):
     def get_stronger_offering(self):
         try:
             offering = self.serviceofferingid.get(weaker=False)
-        except (ObjectDoesNotExist,MultipleObjectsReturned) as e:
+        except (ObjectDoesNotExist, MultipleObjectsReturned) as e:
             LOG.warn(e)
             return None
         else:
@@ -156,6 +146,7 @@ class PlanAttr(BaseModel):
     def initialization_script(self,):
         return self.userdata
 
+
 class LastUsedBundle(BaseModel):
 
     plan = models.ForeignKey('physical.Plan', related_name="cs_history_plan")
@@ -168,15 +159,13 @@ class LastUsedBundle(BaseModel):
     def __unicode__(self):
         return "Last bundle: %s used for plan: plan %s" % (self.bundle, self.plan)
 
-
     @classmethod
     def get_next_bundle(cls, plan, bundle):
         try:
             obj, created = cls.objects.get_or_create(plan=plan,
                                                      defaults={'plan': plan,
                                                                'bundle': bundle[0],
-                                                     },
-            )
+                                                               },)
 
         except MultipleObjectsReturned as e:
             LOG.warn("Multiple objects returned: %s" % e)
@@ -184,20 +173,18 @@ class LastUsedBundle(BaseModel):
         else:
 
             if not created:
-                next_bundle = (i for i,v in enumerate(bundle) if v!=obj.bundle).next()
+                next_bundle = (i for i, v in enumerate(bundle) if v != obj.bundle).next()
                 obj.bundle = bundle[next_bundle]
                 obj.save()
 
             return obj.bundle
 
+
 class CloudStackPack(BaseModel):
-    script = models.TextField(verbose_name=_("Script"),
-                                help_text="Script setup database")
+    script = models.TextField(verbose_name=_("Script"), help_text="Script setup database")
     offering = models.ForeignKey('CloudStackOffering', related_name="cs_offering_packs")
     engine_type = models.ForeignKey('physical.EngineType', verbose_name=_("Engine Type"), related_name='cs_packs')
-    name = models.CharField(verbose_name=_("Name"),
-                 max_length=100,
-                 help_text="Cloud Stack Pack Name")
+    name = models.CharField(verbose_name=_("Name"), max_length=100, help_text="Cloud Stack Pack Name")
 
     def __unicode__(self):
         return "%s" % (self.name)
@@ -208,10 +195,9 @@ class CloudStackPack(BaseModel):
     region = property(get_region)
 
     def get_environment(self):
-         return self.offering.region.environment
+        return self.offering.region.environment
 
     environment = property(get_environment)
-
 
 
 simple_audit.register(PlanAttr)
