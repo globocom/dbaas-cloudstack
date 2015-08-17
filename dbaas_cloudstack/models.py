@@ -34,12 +34,10 @@ class CloudStackBundle(BaseModel):
 
 class CloudStackRegion(BaseModel):
     name = models.CharField(verbose_name=_("Name"), max_length=100, help_text="Cloud Stack Region Name")
-
     environment = models.ForeignKey('physical.Environment', related_name="cs_environment_region")
 
 
 class HostAttr(BaseModel):
-
     vm_id = models.CharField(verbose_name=_("Cloud Stack vm id"), max_length=255, blank=True, null=True)
     vm_user = models.CharField(verbose_name=_("Cloud Stack virtual machine user"), max_length=255, blank=True, null=True)
     vm_password = EncryptedCharField(verbose_name=_("Cloud Stack virtual machine password"), max_length=255, blank=True, null=True)
@@ -56,7 +54,6 @@ class HostAttr(BaseModel):
 
 
 class DatabaseInfraOffering(BaseModel):
-
     offering = models.ForeignKey('CloudStackOffering', related_name="cs_offering")
     databaseinfra = models.ForeignKey('physical.DatabaseInfra', related_name="cs_dbinfra_offering")
 
@@ -71,7 +68,6 @@ class DatabaseInfraOffering(BaseModel):
 
 
 class DatabaseInfraAttr(BaseModel):
-
     ip = models.CharField(verbose_name=_("Cloud Stack reserved ip"), max_length=255, blank=True, null=True)
     dns = models.CharField(verbose_name=_("DNS"), max_length=255, blank=True, null=True)
     cs_ip_id = models.CharField(verbose_name=_("Cloud Stack ip id"), max_length=255, blank=True, null=True)
@@ -92,25 +88,18 @@ class DatabaseInfraAttr(BaseModel):
 
 
 class PlanAttr(BaseModel):
-
     serviceofferingid = models.ManyToManyField(CloudStackOffering)
-
     plan = models.ForeignKey('physical.Plan', related_name="cs_plan_attributes")
-
     bundle = models.ManyToManyField(CloudStackBundle)
-
     userdata = models.TextField(verbose_name=_("Initialization Script"),
                                 help_text="Script to create initialization files",
                                 null=False, blank=True)
-
     configuration_script = models.TextField(verbose_name=_("Configuration Script"),
                                             help_text="Script to configure database insatnces",
                                             null=False, blank=True)
-
     start_database_script = models.TextField(verbose_name=_("Start database Script"),
                                              help_text="Script to start database instances",
                                              null=False, blank=True)
-
     start_replication_script = models.TextField(verbose_name=_("Start replication Script"),
                                                 help_text="Script to start database replication",
                                                 null=True, blank=True)
@@ -148,9 +137,7 @@ class PlanAttr(BaseModel):
 
 
 class LastUsedBundle(BaseModel):
-
     plan = models.ForeignKey('physical.Plan', related_name="cs_history_plan")
-
     bundle = models.ForeignKey('CloudStackBundle', related_name="cs_history_bundle")
 
     class Meta:

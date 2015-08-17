@@ -10,7 +10,6 @@ LOG = logging.getLogger(__name__)
 
 
 class CloudStackProvider(object):
-
     def __init__(self, credentials, networkapi_credentials=None):
         self.api = self.authenticate(credentials=credentials)
         self.networkapi_credentials = networkapi_credentials
@@ -99,12 +98,12 @@ class CloudStackProvider(object):
                     sleep(wait)
 
                 LOG.info("Cheking async job... attempt number %s..." %
-                         str(attempt+1))
+                         str(attempt + 1))
 
                 job = self.api.queryAsyncJobResult('POST', {'jobid': jobid})
                 if job['jobstatus'] == 1:
                     return True
-                elif job['jobstatus'] == 2 or (attempt == retries-1):
+                elif job['jobstatus'] == 2 or (attempt == retries - 1):
                     LOG.warning(
                         "Something ocurred on cloudstack: {}".format(job))
                     return False
@@ -132,7 +131,7 @@ class CloudStackProvider(object):
 
             if 'jobid' in response:
                 query_async = self.query_async_job(jobid=response['jobid'])
-                if query_async == True:
+                if query_async is True:
                     LOG.info("VirtualMachine created!")
                     if affinity_group_id:
                         request = {'id': response['id']}
@@ -168,7 +167,7 @@ class CloudStackProvider(object):
 
             if 'jobid' in response:
                 query_async = self.query_async_job(jobid=response['jobid'])
-                if query_async == True:
+                if query_async is True:
                     LOG.info("VirtualMachine stoped!")
                     return True
                 else:
@@ -189,7 +188,7 @@ class CloudStackProvider(object):
 
             if 'jobid' in response:
                 query_async = self.query_async_job(jobid=response['jobid'])
-                if query_async == True:
+                if query_async is True:
                     LOG.info("VirtualMachine started!")
                     return True
                 else:
