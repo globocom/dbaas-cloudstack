@@ -5,7 +5,8 @@ from django.contrib import admin
 
 class CloudStackPackAdmin(admin.ModelAdmin):
     search_fields = ("offering__name", "engine_type__name", )
-    list_display = ("name", "offering","pack_region","pack_environment", "engine_type")
+    list_display = ("name", "offering", "pack_region", "pack_environment", "engine_type")
+    list_filter = ("engine_type", "offering__region__environment")
     save_on_top = True
 
     def pack_region(self, pack):
