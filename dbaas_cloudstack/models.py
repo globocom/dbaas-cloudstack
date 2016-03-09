@@ -147,23 +147,34 @@ class LastUsedBundle(BaseModel):
         return "Last bundle: %s used for plan: plan %s" % (self.bundle, self.plan)
 
     @classmethod
-    def get_next_bundle(cls, plan, bundle):
+    def get_next_bundle(cls, bundle, bundles):
+        sorted_bundles = sorted(bundles, key=lambda b: b.id)
+        try:
+            next_bundle = (i for i, v in enumerate(sorted_bundles) if v.id > bundle.id).next()
+        except StopIteration:
+            next_bundle = 0
+        return sorted_bundles[next_bundle]
+
+
+    @classmethod
+    def get_next_infra_bundle(cls, plan, bundles):
+        sorted_bundles = sorted(bundles, key=lambda b: b.id)
         try:
             obj, created = cls.objects.get_or_create(plan=plan,
                                                      defaults={'plan': plan,
-                                                               'bundle': bundle[0],
+                                                               'bundle': sorted_bundles[0],
                                                                },)
 
         except MultipleObjectsReturned as e:
-            LOG.warn("Multiple objects returned: %s" % e)
-            raise
+            error = "Multiple objects returned: {}".format(e)
+            LOG.warn(error)
+            raise Exception(error)
+
         else:
 
             if not created:
-                next_bundle = (i for i, v in enumerate(bundle) if v != obj.bundle).next()
-                obj.bundle = bundle[next_bundle]
+                obj.bundle = cls.get_next_bundle(bundle=obj.bundle, bundles=sorted_bundles)
                 obj.save()
-
             return obj.bundle
 
 
