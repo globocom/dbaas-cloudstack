@@ -244,6 +244,23 @@ class CloudStackProvider(object):
             LOG.warning("We could not retrieve the vm offeringid %s" % e)
             return None
 
+    def get_vm_network_id(self, vm_id, project_id, affinity_group_id=None):
+        try:
+            LOG.info("Listing networkid for vm (id: %s)" % (vm_id))
+
+            request = {'projectid': project_id, 'id': vm_id}
+
+            if affinity_group_id:
+                request['affinitygroupids'] = affinity_group_id
+                del request['projectid']
+
+            response = self.api.listVirtualMachines('GET', request)
+
+            return response['virtualmachine'][0]['nic'][0]['networkid']
+        except Exception as e:
+            LOG.warning("We could not retrieve the vm networkid %s" % e)
+            return None
+
     def change_service_for_vm(self, vm_id, serviceofferingid):
         try:
             LOG.info("Changing service offering (id: %s) for virtualmachine, (id: %s)" % (
