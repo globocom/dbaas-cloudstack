@@ -11,7 +11,7 @@ def update_field_value(modeladmin, request, queryset):
 
 
 class CloudStackBundleAdmin(admin.ModelAdmin):
-    search_fields = ("name", "region__name")
+    search_fields = ("name", "region__name", "zoneid", "templateid", "networkid")
     list_display = ("name", "zoneid", "templateid", "networkid", "region")
     list_filter = ("region", )
     save_on_top = True
