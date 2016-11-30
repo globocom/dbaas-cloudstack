@@ -15,18 +15,8 @@ help:
 clean: clean-build clean-pyc
 
 fake_deploy:
-	rm -f /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/provider.pyc
-	rm /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/models.pyc
-	rm /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/admin/cloudstack_bundle.pyc
-	rm /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/admin/cloudstack_pack.pyc
-	rm /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/admin/cloudstack_region.pyc
-	rm /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/admin/cloudstack_serviceoffering.pyc
-	cp dbaas_cloudstack/provider.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
-	cp dbaas_cloudstack/models.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
-	cp dbaas_cloudstack/admin/cloudstack_bundle.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/admin/
-	cp dbaas_cloudstack/admin/cloudstack_pack.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/admin/
-	cp dbaas_cloudstack/admin/cloudstack_region.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/admin/
-	cp dbaas_cloudstack/admin/cloudstack_serviceoffering.py /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/admin/
+	rm -rf /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
+	cp -r dbaas_cloudstack/ /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
 
 
 clean-build:
