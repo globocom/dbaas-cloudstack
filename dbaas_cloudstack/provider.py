@@ -261,6 +261,26 @@ class CloudStackProvider(object):
             LOG.warning("We could not retrieve the vm networkid %s" % e)
             return None
 
+    def get_vm_ostype(self, vm_id, project_id, affinity_group_id=None):
+        try:
+            LOG.info("Listing ostype for vm (id: %s)" % (vm_id))
+
+            request = {'projectid': project_id, 'id': vm_id}
+            if affinity_group_id:
+                request['affinitygroupids'] = affinity_group_id
+                del request['projectid']
+
+            response = self.api.listVirtualMachines('GET', request)
+            ostypeid = response['virtualmachine'][0]['ostypeid']
+            LOG.info("ostypeid = {}".format(ostypeid))
+            os_type = self.api.listOsTypes('GET', {'id': str(ostypeid)})
+
+            return os_type['ostype'][0]['description']
+
+        except Exception as e:
+            LOG.warning("We could not retrieve ostype for vm. Error: %s" % e)
+            return None
+
     def change_service_for_vm(self, vm_id, serviceofferingid):
         try:
             LOG.info("Changing service offering (id: %s) for virtualmachine, (id: %s)" % (
