@@ -56,7 +56,8 @@ release:
 	python setup.py sdist upload
 
 release_globo:
-	python setup.py sdist upload -r ipypiglobo
+	python setup.py sdist register -r ipypiglobo
+	python setup.py sdist register -r pypiglobo
 
 sdist: clean
 	python setup.py sdist
