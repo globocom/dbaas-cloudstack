@@ -413,3 +413,35 @@ class CloudStackProvider(object):
             LOG.warning(
                 "We could not remove networkapi equipment because %s" % e)
             return None
+
+    def reinstall_new_template(self, vm_id, template_id):
+        try:
+            LOG.info(
+                "Reinstall Virtualmachine (id: {}) template to {}".format(
+                    vm_id, template_id
+                )
+            )
+            response = self.api.restoreVirtualMachine(
+                'POST', {'virtualmachineid': vm_id, 'templateid': template_id}
+            )
+
+            if 'jobid' in response:
+                query_async = self.query_async_job(jobid=response['jobid'])
+                if query_async :
+                    LOG.info("VirtualMachine reinstalled!")
+                    return True
+                else:
+                    return False
+            else:
+                LOG.warning(
+                    "Something occurred on cloudstack: {}, {}".format(
+                        response['errorcode'], response['errortext']
+                    )
+                )
+                return
+
+        except Exception as e:
+            LOG.warning(
+                "We could not reinstall the virtualmachine because {}".format(e)
+            )
+            return

@@ -75,6 +75,10 @@ class CloudStackClient(SignedApiCall):
         key = command.lower() + "response"
         if key == 'addiptonicresponse':
             key = 'addiptovmnicresponse'
+
+        if key == 'restorevirtualmachineresponse':
+            key = 'restorevmresponse'
+
         jsondata = json.loads(data)
         LOG.info("JSON data = {}".format(jsondata))
         return jsondata[key]
