@@ -136,15 +136,10 @@ class PlanAttr(BaseModel):
         return self.userdata
 
 
-class LastUsedBundle(BaseModel):
-    plan = models.ForeignKey('physical.Plan', related_name="cs_history_plan")
-    bundle = models.ForeignKey('CloudStackBundle', related_name="cs_history_bundle")
+class BundleModel(BaseModel):
 
     class Meta:
-        unique_together = (("plan", "bundle"),)
-
-    def __unicode__(self):
-        return "Last bundle: %s used for plan: plan %s" % (self.bundle, self.plan)
+        abstract = True
 
     @classmethod
     def get_next_bundle(cls, bundle, bundles):
@@ -156,6 +151,16 @@ class LastUsedBundle(BaseModel):
         return sorted_bundles[next_bundle]
 
 
+class LastUsedBundle(BundleModel):
+    plan = models.ForeignKey('physical.Plan', related_name="cs_history_plan")
+    bundle = models.ForeignKey('CloudStackBundle', related_name="cs_history_bundle")
+
+    class Meta:
+        unique_together = (("plan", "bundle"),)
+
+    def __unicode__(self):
+        return "Last bundle: %s used for plan: plan %s" % (self.bundle, self.plan)
+
     @classmethod
     def get_next_infra_bundle(cls, plan, bundles):
         sorted_bundles = sorted(bundles, key=lambda b: b.id)
@@ -163,6 +168,42 @@ class LastUsedBundle(BaseModel):
             obj, created = cls.objects.get_or_create(plan=plan,
                                                      defaults={'plan': plan,
                                                                'bundle': sorted_bundles[0],
+                                                               },)
+
+        except MultipleObjectsReturned as e:
+            error = "Multiple objects returned: {}".format(e)
+            LOG.warn(error)
+            raise Exception(error)
+
+        else:
+
+            if not created:
+                obj.bundle = cls.get_next_bundle(bundle=obj.bundle, bundles=sorted_bundles)
+                obj.save()
+            return obj.bundle
+
+
+class LastUsedBundleDatabaseInfra(BundleModel):
+    databaseinfra = models.ForeignKey('physical.DatabaseInfra',
+                                      related_name="cs_history_databaseinfra",
+                                      unique=True,)
+    bundle = models.ForeignKey('CloudStackBundle',
+                               related_name="cs_last_bundle_databaseinfra")
+
+    def __unicode__(self):
+        return "Last bundle: {} used for databaseinfra: {}".format(self.bundle, self.plan)
+
+    @classmethod
+    def get_next_infra_bundle(cls, databaseinfra):
+        import random
+        plan = PlanAttr.objects.get(plan=databaseinfra.plan)
+        bundles = list(plan.bundle.all())
+        sorted_bundles = sorted(bundles, key=lambda b: b.id)
+        index = random.randint(0, len(bundles) - 1)
+        try:
+            obj, created = cls.objects.get_or_create(databaseinfra=databaseinfra,
+                                                     defaults={'databaseinfra': databaseinfra,
+                                                               'bundle': sorted_bundles[index],
                                                                },)
 
         except MultipleObjectsReturned as e:
