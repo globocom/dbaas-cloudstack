@@ -261,6 +261,40 @@ class CloudStackProvider(object):
             LOG.warning("We could not retrieve the vm networkid %s" % e)
             return None
 
+    def get_vm_zone_id(self, vm_id, project_id, affinity_group_id=None):
+        try:
+            LOG.info("Listing zone id for vm (id: %s)" % (vm_id))
+
+            request = {'projectid': project_id, 'id': vm_id}
+
+            if affinity_group_id:
+                request['affinitygroupids'] = affinity_group_id
+                del request['projectid']
+
+            response = self.api.listVirtualMachines('GET', request)
+
+            return response['virtualmachine'][0]['zoneid']
+        except Exception as e:
+            LOG.warning("We could not retrieve the vm zoneid %s" % e)
+            return None
+
+    def get_vm_template_id(self, vm_id, project_id, affinity_group_id=None):
+        try:
+            LOG.info("Listing template id for vm (id: %s)" % (vm_id))
+
+            request = {'projectid': project_id, 'id': vm_id}
+
+            if affinity_group_id:
+                request['affinitygroupids'] = affinity_group_id
+                del request['projectid']
+
+            response = self.api.listVirtualMachines('GET', request)
+
+            return response['virtualmachine'][0]['templateid']
+        except Exception as e:
+            LOG.warning("We could not retrieve the vm templateid %s" % e)
+            return None
+
     def get_vm_ostype(self, vm_id, project_id, affinity_group_id=None):
         try:
             LOG.info("Listing ostype for vm (id: %s)" % (vm_id))
