@@ -30,6 +30,17 @@ class CloudStackBundle(BaseModel):
     networkid = models.CharField(verbose_name=_("Network ID"), max_length=100, help_text="Cloud Stack Network ID")
     name = models.CharField(verbose_name=_("Name"), max_length=100, help_text="Cloud Stack Zone Name")
     region = models.ForeignKey('CloudStackRegion', related_name="cs_bundle_region", null=True)
+    is_active = models.BooleanField(verbose_name=_("Is bundle active"), default=True)
+    engine = models.ForeignKey('physical.Engine', null=True, blank=True)
+
+    def __unicode__(self):
+        return "Cloud Stack Bundle ({region}-{name}): {templateid}-{zoneid}-{networkid}".format(
+            name=self.name,
+            region=self.region,
+            templateid=self.templateid,
+            zoneid=self.zoneid,
+            networkid=self.networkid
+        )
 
 
 class CloudStackRegion(BaseModel):
@@ -42,6 +53,7 @@ class HostAttr(BaseModel):
     vm_user = models.CharField(verbose_name=_("Cloud Stack virtual machine user"), max_length=255, blank=True, null=True)
     vm_password = EncryptedCharField(verbose_name=_("Cloud Stack virtual machine password"), max_length=255, blank=True, null=True)
     host = models.ForeignKey('physical.Host', related_name="cs_host_attributes")
+    bundle = models.ForeignKey(CloudStackBundle, null=True, blank=True)
 
     def __unicode__(self):
         return "Cloud Stack host Attributes (host=%s)" % (self.host)
