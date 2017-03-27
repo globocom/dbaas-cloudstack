@@ -191,7 +191,7 @@ class LastUsedBundleDatabaseInfra(BundleModel):
                                related_name="cs_last_bundle_databaseinfra")
 
     def __unicode__(self):
-        return "Last bundle: {} used for databaseinfra: {}".format(self.bundle, self.plan)
+        return "Last bundle: {} used for databaseinfra: {}".format(self.bundle, self.databaseinfra)
 
     @classmethod
     def get_next_infra_bundle(cls, databaseinfra):
