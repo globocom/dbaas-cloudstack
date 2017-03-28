@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
 import logging
-
 import simple_audit
 from dbaas_cloudstack.util.models import BaseModel
 from django.db import models
@@ -34,13 +33,7 @@ class CloudStackBundle(BaseModel):
     engine = models.ForeignKey('physical.Engine', null=True, blank=True)
 
     def __unicode__(self):
-        return "Cloud Stack Bundle ({region}-{name}): {templateid}-{zoneid}-{networkid}".format(
-            name=self.name,
-            region=self.region,
-            templateid=self.templateid,
-            zoneid=self.zoneid,
-            networkid=self.networkid
-        )
+        return self.name
 
 
 class CloudStackRegion(BaseModel):
@@ -63,6 +56,34 @@ class HostAttr(BaseModel):
             ("view_cshostattribute", "Can view cloud stack host attributes"),
         )
         verbose_name_plural = "CloudStack Custom Host Attributes"
+
+    def update_bundle(self):
+        from dbaas_cloudstack.provider import CloudStackProvider
+        from dbaas_cloudstack.util import get_cs_credential
+
+        databaseinfra = self.host.instances.all()[0].databaseinfra
+        environment = databaseinfra.environment
+        engine = databaseinfra.engine
+
+        cs_credentials = get_cs_credential(environment)
+        cs_provider = CloudStackProvider(credentials=cs_credentials)
+
+        networkid = cs_provider.get_vm_network_id(
+            vm_id=self.vm_id,
+            project_id=cs_credentials.project)
+
+        zoneid = cs_provider.get_vm_zone_id(
+            vm_id=self.vm_id,
+            project_id=cs_credentials.project)
+
+        bunbdles = CloudStackBundle.objects.filter(
+            networkid=networkid,
+            zoneid=zoneid,
+            engine=engine,
+            region__environment=environment)
+        if len(bunbdles) > 0:
+            self.bundle = bunbdles[0]
+            self.save()
 
 
 class DatabaseInfraOffering(BaseModel):
@@ -209,7 +230,7 @@ class LastUsedBundleDatabaseInfra(BundleModel):
     def get_next_infra_bundle(cls, databaseinfra):
         import random
         plan = PlanAttr.objects.get(plan=databaseinfra.plan)
-        bundles = list(plan.bundle.all())
+        bundles = list(plan.bundle.filter(is_active=True))
         sorted_bundles = sorted(bundles, key=lambda b: b.id)
         index = random.randint(0, len(bundles) - 1)
         try:
@@ -229,6 +250,19 @@ class LastUsedBundleDatabaseInfra(BundleModel):
                 obj.bundle = cls.get_next_bundle(bundle=obj.bundle, bundles=sorted_bundles)
                 obj.save()
             return obj.bundle
+
+    @classmethod
+    def set_last_infra_bundle(cls, databaseinfra, bundle):
+        obj, created = cls.objects.get_or_create(
+            databaseinfra=databaseinfra,
+            defaults={
+                'databaseinfra': databaseinfra,
+                'bundle': bundle,
+            },
+        )
+        if not created:
+            obj.bundle = bundle
+            obj.save()
 
 
 class CloudStackPack(BaseModel):
