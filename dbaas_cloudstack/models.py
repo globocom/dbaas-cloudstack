@@ -175,12 +175,17 @@ class BundleModel(BaseModel):
         abstract = True
 
     @classmethod
-    def get_next_bundle(cls, bundle, bundles):
+    def get_randon_bundle_index(cls, bundles):
+        import random
+        return random.randint(0, len(bundles) - 1)
+
+    @classmethod
+    def get_next_bundle(cls, current_bundle, bundles):
         sorted_bundles = sorted(bundles, key=lambda b: b.id)
         try:
-            next_bundle = (i for i, v in enumerate(sorted_bundles) if v.id > bundle.id).next()
+            next_bundle = (i for i, v in enumerate(sorted_bundles) if v.id > current_bundle.id).next()
         except StopIteration:
-            next_bundle = 0
+            next_bundle = cls.get_randon_bundle_index(bundles)
         return sorted_bundles[next_bundle]
 
 
@@ -196,12 +201,12 @@ class LastUsedBundle(BundleModel):
 
     @classmethod
     def get_next_infra_bundle(cls, plan, bundles):
-        sorted_bundles = sorted(bundles, key=lambda b: b.id)
+        randon_bundle = bundles[cls.get_randon_bundle_index(bundles)]
         try:
-            obj, created = cls.objects.get_or_create(plan=plan,
-                                                     defaults={'plan': plan,
-                                                               'bundle': sorted_bundles[0],
-                                                               },)
+            obj, created = cls.objects.get_or_create(
+                plan=plan,
+                defaults={'plan': plan, 'bundle': randon_bundle},
+            )
 
         except MultipleObjectsReturned as e:
             error = "Multiple objects returned: {}".format(e)
@@ -211,7 +216,8 @@ class LastUsedBundle(BundleModel):
         else:
 
             if not created:
-                obj.bundle = cls.get_next_bundle(bundle=obj.bundle, bundles=sorted_bundles)
+                obj.bundle = cls.get_next_bundle(current_bundle=obj.bundle,
+                                                 bundles=bundles)
                 obj.save()
             return obj.bundle
 
@@ -224,41 +230,32 @@ class LastUsedBundleDatabaseInfra(BundleModel):
                                related_name="cs_last_bundle_databaseinfra")
 
     def __unicode__(self):
-        return "Last bundle: {} used for databaseinfra: {}".format(self.bundle, self.databaseinfra)
+        return "Last bundle: {} used for databaseinfra: {}".format(
+            self.bundle,
+            self.databaseinfra)
 
     @classmethod
     def get_next_infra_bundle(cls, databaseinfra):
-        import random
         plan = PlanAttr.objects.get(plan=databaseinfra.plan)
         bundles = list(plan.bundle.filter(is_active=True))
-        sorted_bundles = sorted(bundles, key=lambda b: b.id)
-        index = random.randint(0, len(bundles) - 1)
-        try:
-            obj, created = cls.objects.get_or_create(databaseinfra=databaseinfra,
-                                                     defaults={'databaseinfra': databaseinfra,
-                                                               'bundle': sorted_bundles[index],
-                                                               },)
+        randon_bundle = bundles[cls.get_randon_bundle_index(bundles)]
 
-        except MultipleObjectsReturned as e:
-            error = "Multiple objects returned: {}".format(e)
-            LOG.warn(error)
-            raise Exception(error)
+        obj, created = cls.objects.get_or_create(
+            databaseinfra=databaseinfra,
+            defaults={'databaseinfra': databaseinfra, 'bundle': randon_bundle},
+        )
 
-        else:
-
-            if not created:
-                obj.bundle = cls.get_next_bundle(bundle=obj.bundle, bundles=sorted_bundles)
-                obj.save()
-            return obj.bundle
+        if not created:
+            obj.bundle = cls.get_next_bundle(current_bundle=obj.bundle,
+                                             bundles=bundles)
+            obj.save()
+        return obj.bundle
 
     @classmethod
     def set_last_infra_bundle(cls, databaseinfra, bundle):
         obj, created = cls.objects.get_or_create(
             databaseinfra=databaseinfra,
-            defaults={
-                'databaseinfra': databaseinfra,
-                'bundle': bundle,
-            },
+            defaults={'databaseinfra': databaseinfra, 'bundle': bundle},
         )
         if not created:
             obj.bundle = bundle
