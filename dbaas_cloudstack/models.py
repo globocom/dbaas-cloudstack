@@ -185,7 +185,7 @@ class BundleModel(BaseModel):
         try:
             next_bundle = (i for i, v in enumerate(sorted_bundles) if v.id > current_bundle.id).next()
         except StopIteration:
-            next_bundle = cls.get_randon_bundle_index(bundles)
+            next_bundle = 0
         return sorted_bundles[next_bundle]
 
 
