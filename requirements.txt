@@ -7,3 +7,5 @@ dbaas_credentials==1.0.4
 dbaas_flipper==0.0.7
 dbaas_dnsapi==0.0.5
 django-services==0.0.8
+django-extensions==1.2.2
+python-keyczar==0.71rc0
