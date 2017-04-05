@@ -33,7 +33,11 @@ class CloudStackBundle(BaseModel):
     engine = models.ForeignKey('physical.Engine', null=True, blank=True)
 
     def __unicode__(self):
-        return self.name
+        if self.is_active:
+            sufix = ''
+        else:
+            sufix = ' (inactive)'
+        return self.name + sufix
 
 
 class CloudStackRegion(BaseModel):
