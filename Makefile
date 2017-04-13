@@ -11,6 +11,7 @@ help:
 	@echo "release - package and upload a release"
 	@echo "sdist - package"
 	@echo "fake_deploy - copy files to local site-packages"
+	@echo "test - run test using docker"
 
 clean: clean-build clean-pyc
 
@@ -30,9 +31,6 @@ clean-pyc:
 
 lint:
 	flake8 dbaas-cloudstack tests
-
-test:
-	python runtests.py test
 
 test-all:
 	tox
@@ -63,3 +61,9 @@ release_globo:
 sdist: clean
 	python setup.py sdist
 	ls -l dist
+
+docker_build:
+	docker build -t dbaas_cloudstack_test .
+
+test:
+	docker-compose run test

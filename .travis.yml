@@ -1,17 +1,30 @@
-# Config file for automatic testing at travis-ci.org
+sudo: required
 
 language: python
 
 python:
-  - "3.3"
-  - "2.7"
-  - "2.6"
+    - "2.7"
 
-# command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-install: pip install -r requirements-test.txt
+services:
+    - docker
 
-# command to run tests using coverage, e.g. python setup.py test
-script: coverage run --source dbaas_cloudstack runtests.py
+env:
+  DOCKER_COMPOSE_VERSION: 1.11.2
 
-# report coverage to coveralls.io
-after_success: coveralls
+before_install:
+  - make docker_build
+  - sudo rm /usr/local/bin/docker-compose
+  - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
+  - chmod +x docker-compose
+  - sudo mv docker-compose /usr/local/bin
+  - docker-compose --version
+  - docker-compose pull mysqldb56 redisdb mongodb
+  - docker images
+  - docker ps
+  - sudo /etc/init.d/mysql stop
+
+script:
+  - docker-compose run test
+
+notifications:
+    email: false
