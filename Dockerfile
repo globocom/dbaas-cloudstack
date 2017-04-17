@@ -11,4 +11,4 @@ RUN pip install -r dbaas/requirements_test.txt
 ADD . /code/dbaas_cloudstack
 RUN pip install -r dbaas_cloudstack/requirements.txt
 RUN cd /code/dbaas_cloudstack; pip install -e .
-ENTRYPOINT /code/dbaas_cloudstack/tests.sh
+ENTRYPOINT /code/dbaas_cloudstack/run_tests.sh
