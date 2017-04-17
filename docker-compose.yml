@@ -50,4 +50,26 @@ services:
             - DBAAS_DATABASE_HOST=mysqldb56
             - DBAAS_DATABASE_PASSWORD=123
             - TESTS_MONGODB_HOST=mongodb
-            - CLOUD_STACK_ENABLED='1'
+            - CLOUD_STACK_ENABLED=1
+
+    web:
+        image: dbaas_cloudstack_test
+        volumes:
+            - .:/code/dbaas_cloudstack
+        depends_on:
+            - mysqldb56
+            - mongodb
+            - redisdb
+        links:
+            - mysqldb56
+            - mongodb
+            - redisdb
+
+        environment:
+            - REDIS_HOST=redisdb
+            - DBAAS_DATABASE_HOST=mysqldb56
+            - DBAAS_DATABASE_PASSWORD=123
+            - TESTS_MONGODB_HOST=mongodb
+            - CLOUD_STACK_ENABLED=1
+        ports:
+            - "8000:8000"
