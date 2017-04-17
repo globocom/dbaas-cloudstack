@@ -17,9 +17,8 @@ python /code/dbaas_cloudstack/add_user_admin_on_mongo.py
 # TODO: verify is this code already on file
 echo "NOSE_ARGS.extend(['--tests=/code/dbaas_cloudstack/'])" >> /code/dbaas/dbaas/dbaas/settings_test.py
 
-cat /code/dbaas/dbaas/dbaas/settings_test.py
-
 # Run tests
 cd /code/dbaas/dbaas && python manage.py test --settings=dbaas.settings_test --traceback
 
+# uncomment this to run bash on container for debug
 # bash
