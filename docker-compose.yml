@@ -1,0 +1,75 @@
+version: '2.1'
+
+services:
+
+    mysqldb55:
+        image: mysql:5.5
+        environment:
+            - MYSQL_ROOT_PASSWORD=123
+            - MYSQL_USER=rute
+            - MYSQL_PASSWORD=123
+            - MYSQL_DATABASE=dbaas
+
+    mysqldb56:
+        image: mysql:5.6
+        environment:
+            - MYSQL_ROOT_PASSWORD=123
+            - MYSQL_USER=rute
+            - MYSQL_PASSWORD=123
+            - MYSQL_DATABASE=dbaas
+
+    mysqldb57:
+        image: mysql:5.7
+        environment:
+            - MYSQL_ROOT_PASSWORD=123
+            - MYSQL_USER=rute
+            - MYSQL_PASSWORD=123
+            - MYSQL_DATABASE=dbaas
+
+    mongodb:
+        image: mongo:3.4
+
+    redisdb:
+        image: redis:3.2
+
+    test:
+        image: dbaas_cloudstack_test
+        volumes:
+            - .:/code/dbaas_cloudstack
+        depends_on:
+            - mysqldb56
+            - mongodb
+            - redisdb
+        links:
+            - mysqldb56
+            - mongodb
+            - redisdb
+
+        environment:
+            - REDIS_HOST=redisdb
+            - DBAAS_DATABASE_HOST=mysqldb56
+            - DBAAS_DATABASE_PASSWORD=123
+            - TESTS_MONGODB_HOST=mongodb
+            - CLOUD_STACK_ENABLED=1
+
+    web:
+        image: dbaas_cloudstack_test
+        volumes:
+            - .:/code/dbaas_cloudstack
+        depends_on:
+            - mysqldb56
+            - mongodb
+            - redisdb
+        links:
+            - mysqldb56
+            - mongodb
+            - redisdb
+
+        environment:
+            - REDIS_HOST=redisdb
+            - DBAAS_DATABASE_HOST=mysqldb56
+            - DBAAS_DATABASE_PASSWORD=123
+            - TESTS_MONGODB_HOST=mongodb
+            - CLOUD_STACK_ENABLED=1
+        ports:
+            - "8000:8000"

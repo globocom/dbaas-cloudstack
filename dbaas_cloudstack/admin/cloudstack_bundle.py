@@ -12,8 +12,8 @@ def update_field_value(modeladmin, request, queryset):
 
 class CloudStackBundleAdmin(admin.ModelAdmin):
     search_fields = ("name", "region__name", "zoneid", "templateid", "networkid")
-    list_display = ("name", "zoneid", "templateid", "networkid", "region")
-    list_filter = ("region", )
+    list_display = ("name", "engine", "zoneid", "templateid", "networkid", "region", "is_active")
+    list_filter = ("region", "region__environment", "engine", "engine__engine_type", "is_active")
     save_on_top = True
     action_form = CloudStackBundleActionForm
     actions = [update_field_value]

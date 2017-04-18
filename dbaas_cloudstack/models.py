@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
 import logging
-
 import simple_audit
 from dbaas_cloudstack.util.models import BaseModel
 from django.db import models
@@ -30,6 +29,15 @@ class CloudStackBundle(BaseModel):
     networkid = models.CharField(verbose_name=_("Network ID"), max_length=100, help_text="Cloud Stack Network ID")
     name = models.CharField(verbose_name=_("Name"), max_length=100, help_text="Cloud Stack Zone Name")
     region = models.ForeignKey('CloudStackRegion', related_name="cs_bundle_region", null=True)
+    is_active = models.BooleanField(verbose_name=_("Is bundle active"), default=True)
+    engine = models.ForeignKey('physical.Engine', null=True, blank=True)
+
+    def __unicode__(self):
+        if self.is_active:
+            sufix = ''
+        else:
+            sufix = ' (inactive)'
+        return self.name + sufix
 
 
 class CloudStackRegion(BaseModel):
@@ -42,6 +50,7 @@ class HostAttr(BaseModel):
     vm_user = models.CharField(verbose_name=_("Cloud Stack virtual machine user"), max_length=255, blank=True, null=True)
     vm_password = EncryptedCharField(verbose_name=_("Cloud Stack virtual machine password"), max_length=255, blank=True, null=True)
     host = models.ForeignKey('physical.Host', related_name="cs_host_attributes")
+    bundle = models.ForeignKey(CloudStackBundle, null=True, blank=True)
 
     def __unicode__(self):
         return "Cloud Stack host Attributes (host=%s)" % (self.host)
@@ -51,6 +60,34 @@ class HostAttr(BaseModel):
             ("view_cshostattribute", "Can view cloud stack host attributes"),
         )
         verbose_name_plural = "CloudStack Custom Host Attributes"
+
+    def update_bundle(self):
+        from dbaas_cloudstack.provider import CloudStackProvider
+        from dbaas_cloudstack.util import get_cs_credential
+
+        databaseinfra = self.host.instances.all()[0].databaseinfra
+        environment = databaseinfra.environment
+        engine = databaseinfra.engine
+
+        cs_credentials = get_cs_credential(environment)
+        cs_provider = CloudStackProvider(credentials=cs_credentials)
+
+        networkid = cs_provider.get_vm_network_id(
+            vm_id=self.vm_id,
+            project_id=cs_credentials.project)
+
+        zoneid = cs_provider.get_vm_zone_id(
+            vm_id=self.vm_id,
+            project_id=cs_credentials.project)
+
+        bunbdles = CloudStackBundle.objects.filter(
+            networkid=networkid,
+            zoneid=zoneid,
+            engine=engine,
+            region__environment=environment)
+        if len(bunbdles) > 0:
+            self.bundle = bunbdles[0]
+            self.save()
 
 
 class DatabaseInfraOffering(BaseModel):
@@ -136,7 +173,27 @@ class PlanAttr(BaseModel):
         return self.userdata
 
 
-class LastUsedBundle(BaseModel):
+class BundleModel(BaseModel):
+
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def get_randon_bundle_index(cls, bundles):
+        import random
+        return random.randint(0, len(bundles) - 1)
+
+    @classmethod
+    def get_next_bundle(cls, current_bundle, bundles):
+        sorted_bundles = sorted(bundles, key=lambda b: b.id)
+        try:
+            next_bundle = (i for i, v in enumerate(sorted_bundles) if v.id > current_bundle.id).next()
+        except StopIteration:
+            next_bundle = 0
+        return sorted_bundles[next_bundle]
+
+
+class LastUsedBundle(BundleModel):
     plan = models.ForeignKey('physical.Plan', related_name="cs_history_plan")
     bundle = models.ForeignKey('CloudStackBundle', related_name="cs_history_bundle")
 
@@ -147,23 +204,13 @@ class LastUsedBundle(BaseModel):
         return "Last bundle: %s used for plan: plan %s" % (self.bundle, self.plan)
 
     @classmethod
-    def get_next_bundle(cls, bundle, bundles):
-        sorted_bundles = sorted(bundles, key=lambda b: b.id)
-        try:
-            next_bundle = (i for i, v in enumerate(sorted_bundles) if v.id > bundle.id).next()
-        except StopIteration:
-            next_bundle = 0
-        return sorted_bundles[next_bundle]
-
-
-    @classmethod
     def get_next_infra_bundle(cls, plan, bundles):
-        sorted_bundles = sorted(bundles, key=lambda b: b.id)
+        randon_bundle = bundles[cls.get_randon_bundle_index(bundles)]
         try:
-            obj, created = cls.objects.get_or_create(plan=plan,
-                                                     defaults={'plan': plan,
-                                                               'bundle': sorted_bundles[0],
-                                                               },)
+            obj, created = cls.objects.get_or_create(
+                plan=plan,
+                defaults={'plan': plan, 'bundle': randon_bundle},
+            )
 
         except MultipleObjectsReturned as e:
             error = "Multiple objects returned: {}".format(e)
@@ -173,9 +220,50 @@ class LastUsedBundle(BaseModel):
         else:
 
             if not created:
-                obj.bundle = cls.get_next_bundle(bundle=obj.bundle, bundles=sorted_bundles)
+                obj.bundle = cls.get_next_bundle(current_bundle=obj.bundle,
+                                                 bundles=bundles)
                 obj.save()
             return obj.bundle
+
+
+class LastUsedBundleDatabaseInfra(BundleModel):
+    databaseinfra = models.ForeignKey('physical.DatabaseInfra',
+                                      related_name="cs_history_databaseinfra",
+                                      unique=True,)
+    bundle = models.ForeignKey('CloudStackBundle',
+                               related_name="cs_last_bundle_databaseinfra")
+
+    def __unicode__(self):
+        return "Last bundle: {} used for databaseinfra: {}".format(
+            self.bundle,
+            self.databaseinfra)
+
+    @classmethod
+    def get_next_infra_bundle(cls, databaseinfra):
+        plan = PlanAttr.objects.get(plan=databaseinfra.plan)
+        bundles = list(plan.bundle.filter(is_active=True))
+        randon_bundle = bundles[cls.get_randon_bundle_index(bundles)]
+
+        obj, created = cls.objects.get_or_create(
+            databaseinfra=databaseinfra,
+            defaults={'databaseinfra': databaseinfra, 'bundle': randon_bundle},
+        )
+
+        if not created:
+            obj.bundle = cls.get_next_bundle(current_bundle=obj.bundle,
+                                             bundles=bundles)
+            obj.save()
+        return obj.bundle
+
+    @classmethod
+    def set_last_infra_bundle(cls, databaseinfra, bundle):
+        obj, created = cls.objects.get_or_create(
+            databaseinfra=databaseinfra,
+            defaults={'databaseinfra': databaseinfra, 'bundle': bundle},
+        )
+        if not created:
+            obj.bundle = bundle
+            obj.save()
 
 
 class CloudStackPack(BaseModel):

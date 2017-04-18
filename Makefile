@@ -11,13 +11,13 @@ help:
 	@echo "release - package and upload a release"
 	@echo "sdist - package"
 	@echo "fake_deploy - copy files to local site-packages"
+	@echo "test - run test using docker"
 
 clean: clean-build clean-pyc
 
 fake_deploy:
-	rm -rf /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
-	cp -r dbaas_cloudstack/ /Users/$(USER)/.virtualenvs/dbaas/lib/python2.7/site-packages/dbaas_cloudstack/
-
+	pip uninstall dbaas_cloudstack
+	pip install -e .
 
 clean-build:
 	rm -fr build/
@@ -31,9 +31,6 @@ clean-pyc:
 
 lint:
 	flake8 dbaas-cloudstack tests
-
-test:
-	python runtests.py test
 
 test-all:
 	tox
@@ -57,8 +54,17 @@ release:
 
 release_globo:
 	python setup.py sdist register -r ipypiglobo
+	python setup.py sdist upload -r ipypiglobo
 	python setup.py sdist register -r pypiglobo
+	python setup.py sdist upload -r pypiglobo
 
 sdist: clean
 	python setup.py sdist
 	ls -l dist
+
+docker_build:
+	docker build -t dbaas_cloudstack_test .
+
+test:
+	docker-compose run test
+	docker-compose down
