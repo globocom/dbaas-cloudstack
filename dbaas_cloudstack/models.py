@@ -123,11 +123,16 @@ class DatabaseInfraAttr(BaseModel):
         )
         verbose_name_plural = "CloudStack Custom DatabaseInfra Attributes"
 
+class BundleGroup(BaseModel):
+    name = models.CharField(max_length=100)
+    bundles = models.ManyToManyField(CloudStackBundle)
+
 
 class PlanAttr(BaseModel):
     serviceofferingid = models.ManyToManyField(CloudStackOffering)
     plan = models.ForeignKey('physical.Plan', related_name="cs_plan_attributes")
     bundle = models.ManyToManyField(CloudStackBundle)
+    bundle_group = models.ForeignKey(BundleGroup, null=True, blank=True)
     userdata = models.TextField(verbose_name=_("Initialization Script"),
                                 help_text="Script to create initialization files",
                                 null=False, blank=True)
@@ -140,6 +145,14 @@ class PlanAttr(BaseModel):
     start_replication_script = models.TextField(verbose_name=_("Start replication Script"),
                                                 help_text="Script to start database replication",
                                                 null=True, blank=True)
+
+    @property
+    def bundles(self):
+        return self.bundle_group.bundles.all()
+
+    @property
+    def bundles_actives(self):
+        return self.bundle_group.bundles.filter(is_active=True)
 
     def __unicode__(self):
         return "Cloud Stack plan custom Attributes (plan=%s)" % (self.plan)
@@ -295,3 +308,4 @@ simple_audit.register(LastUsedBundle)
 simple_audit.register(CloudStackRegion)
 simple_audit.register(DatabaseInfraOffering)
 simple_audit.register(CloudStackPack)
+simple_audit.register(BundleGroup)
