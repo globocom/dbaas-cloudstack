@@ -128,8 +128,14 @@ class BundleGroup(BaseModel):
     bundles = models.ManyToManyField(CloudStackBundle)
 
 
+class OfferingGroup(BaseModel):
+    name = models.CharField(max_length=100)
+    offerings = models.ManyToManyField(CloudStackOffering)
+
+
 class PlanAttr(BaseModel):
     serviceofferingid = models.ManyToManyField(CloudStackOffering)
+    offering_group = models.ForeignKey(OfferingGroup, null=True, blank=True)
     plan = models.ForeignKey('physical.Plan', related_name="cs_plan_attributes")
     bundle = models.ManyToManyField(CloudStackBundle)
     bundle_group = models.ForeignKey(BundleGroup, null=True, blank=True)
@@ -154,12 +160,16 @@ class PlanAttr(BaseModel):
     def bundles_actives(self):
         return self.bundle_group.bundles.filter(is_active=True)
 
+    @property
+    def offerings(self):
+        return self.offering_group.offerings.all()
+
     def __unicode__(self):
         return "Cloud Stack plan custom Attributes (plan=%s)" % (self.plan)
 
     def get_weaker_offering(self):
         try:
-            offering = self.serviceofferingid.get(weaker=True)
+            offering = self.offerings.get(weaker=True)
         except (ObjectDoesNotExist, MultipleObjectsReturned) as e:
             LOG.warn(e)
             return None
@@ -168,7 +178,7 @@ class PlanAttr(BaseModel):
 
     def get_stronger_offering(self):
         try:
-            offering = self.serviceofferingid.get(weaker=False)
+            offering = self.offerings.get(weaker=False)
         except (ObjectDoesNotExist, MultipleObjectsReturned) as e:
             LOG.warn(e)
             return None
@@ -309,3 +319,4 @@ simple_audit.register(CloudStackRegion)
 simple_audit.register(DatabaseInfraOffering)
 simple_audit.register(CloudStackPack)
 simple_audit.register(BundleGroup)
+simple_audit.register(OfferingGroup)
