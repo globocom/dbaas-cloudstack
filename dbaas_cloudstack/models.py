@@ -134,10 +134,8 @@ class OfferingGroup(BaseModel):
 
 
 class PlanAttr(BaseModel):
-    serviceofferingid = models.ManyToManyField(CloudStackOffering)
     offering_group = models.ForeignKey(OfferingGroup, null=True, blank=True)
     plan = models.ForeignKey('physical.Plan', related_name="cs_plan_attributes")
-    bundle = models.ManyToManyField(CloudStackBundle)
     bundle_group = models.ForeignKey(BundleGroup, null=True, blank=True)
     userdata = models.TextField(verbose_name=_("Initialization Script"),
                                 help_text="Script to create initialization files",
