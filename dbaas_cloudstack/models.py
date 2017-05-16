@@ -50,7 +50,9 @@ class HostAttr(BaseModel):
     vm_user = models.CharField(verbose_name=_("Cloud Stack virtual machine user"), max_length=255, blank=True, null=True)
     vm_password = EncryptedCharField(verbose_name=_("Cloud Stack virtual machine password"), max_length=255, blank=True, null=True)
     host = models.ForeignKey('physical.Host', related_name="cs_host_attributes")
-    bundle = models.ForeignKey(CloudStackBundle, null=True, blank=True)
+    bundle = models.ForeignKey(
+        CloudStackBundle, null=True, blank=True, on_delete=models.SET_NULL
+    )
 
     def __unicode__(self):
         return "Cloud Stack host Attributes (host=%s)" % (self.host)
