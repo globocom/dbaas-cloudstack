@@ -137,18 +137,6 @@ class PlanAttr(BaseModel):
     offering_group = models.ForeignKey(OfferingGroup, null=True, blank=True)
     plan = models.ForeignKey('physical.Plan', related_name="cs_plan_attributes")
     bundle_group = models.ForeignKey(BundleGroup, null=True, blank=True)
-    userdata = models.TextField(verbose_name=_("Initialization Script"),
-                                help_text="Script to create initialization files",
-                                null=False, blank=True)
-    configuration_script = models.TextField(verbose_name=_("Configuration Script"),
-                                            help_text="Script to configure database insatnces",
-                                            null=False, blank=True)
-    start_database_script = models.TextField(verbose_name=_("Start database Script"),
-                                             help_text="Script to start database instances",
-                                             null=False, blank=True)
-    start_replication_script = models.TextField(verbose_name=_("Start replication Script"),
-                                                help_text="Script to start database replication",
-                                                null=True, blank=True)
 
     @property
     def bundles(self):
@@ -188,10 +176,6 @@ class PlanAttr(BaseModel):
             ("view_csplanattribute", "Can view cloud stack plan custom attributes"),
         )
         verbose_name_plural = "CloudStack Custom Plan Attributes"
-
-    @property
-    def initialization_script(self,):
-        return self.userdata
 
 
 class BundleModel(BaseModel):
