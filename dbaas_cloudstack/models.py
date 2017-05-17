@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
+import os
 import logging
 import simple_audit
 from dbaas_cloudstack.util.models import BaseModel
@@ -50,7 +51,9 @@ class HostAttr(BaseModel):
     vm_user = models.CharField(verbose_name=_("Cloud Stack virtual machine user"), max_length=255, blank=True, null=True)
     vm_password = EncryptedCharField(verbose_name=_("Cloud Stack virtual machine password"), max_length=255, blank=True, null=True)
     host = models.ForeignKey('physical.Host', related_name="cs_host_attributes")
-    bundle = models.ForeignKey(CloudStackBundle, null=True, blank=True)
+    bundle = models.ForeignKey(
+        CloudStackBundle, null=True, blank=True, on_delete=models.SET_NULL
+    )
 
     def __unicode__(self):
         return "Cloud Stack host Attributes (host=%s)" % (self.host)
@@ -123,30 +126,39 @@ class DatabaseInfraAttr(BaseModel):
         )
         verbose_name_plural = "CloudStack Custom DatabaseInfra Attributes"
 
+class BundleGroup(BaseModel):
+    name = models.CharField(max_length=100)
+    bundles = models.ManyToManyField(CloudStackBundle)
+
+
+class OfferingGroup(BaseModel):
+    name = models.CharField(max_length=100)
+    offerings = models.ManyToManyField(CloudStackOffering)
+
 
 class PlanAttr(BaseModel):
-    serviceofferingid = models.ManyToManyField(CloudStackOffering)
+    offering_group = models.ForeignKey(OfferingGroup, null=True, blank=True)
     plan = models.ForeignKey('physical.Plan', related_name="cs_plan_attributes")
-    bundle = models.ManyToManyField(CloudStackBundle)
-    userdata = models.TextField(verbose_name=_("Initialization Script"),
-                                help_text="Script to create initialization files",
-                                null=False, blank=True)
-    configuration_script = models.TextField(verbose_name=_("Configuration Script"),
-                                            help_text="Script to configure database insatnces",
-                                            null=False, blank=True)
-    start_database_script = models.TextField(verbose_name=_("Start database Script"),
-                                             help_text="Script to start database instances",
-                                             null=False, blank=True)
-    start_replication_script = models.TextField(verbose_name=_("Start replication Script"),
-                                                help_text="Script to start database replication",
-                                                null=True, blank=True)
+    bundle_group = models.ForeignKey(BundleGroup, null=True, blank=True)
+
+    @property
+    def bundles(self):
+        return self.bundle_group.bundles.all()
+
+    @property
+    def bundles_actives(self):
+        return self.bundle_group.bundles.filter(is_active=True)
+
+    @property
+    def offerings(self):
+        return self.offering_group.offerings.all()
 
     def __unicode__(self):
         return "Cloud Stack plan custom Attributes (plan=%s)" % (self.plan)
 
     def get_weaker_offering(self):
         try:
-            offering = self.serviceofferingid.get(weaker=True)
+            offering = self.offerings.get(weaker=True)
         except (ObjectDoesNotExist, MultipleObjectsReturned) as e:
             LOG.warn(e)
             return None
@@ -155,7 +167,7 @@ class PlanAttr(BaseModel):
 
     def get_stronger_offering(self):
         try:
-            offering = self.serviceofferingid.get(weaker=False)
+            offering = self.offerings.get(weaker=False)
         except (ObjectDoesNotExist, MultipleObjectsReturned) as e:
             LOG.warn(e)
             return None
@@ -167,10 +179,6 @@ class PlanAttr(BaseModel):
             ("view_csplanattribute", "Can view cloud stack plan custom attributes"),
         )
         verbose_name_plural = "CloudStack Custom Plan Attributes"
-
-    @property
-    def initialization_script(self,):
-        return self.userdata
 
 
 class BundleModel(BaseModel):
@@ -267,23 +275,32 @@ class LastUsedBundleDatabaseInfra(BundleModel):
 
 
 class CloudStackPack(BaseModel):
-    script = models.TextField(verbose_name=_("Script"), help_text="Script setup database")
     offering = models.ForeignKey('CloudStackOffering', related_name="cs_offering_packs")
     engine_type = models.ForeignKey('physical.EngineType', verbose_name=_("Engine Type"), related_name='cs_packs')
     name = models.CharField(verbose_name=_("Name"), max_length=100, help_text="Cloud Stack Pack Name")
+    script_file = models.CharField(
+        verbose_name=_("Script"), max_length=300, help_text="Full file path",
+        null=True, blank=True
+    )
 
     def __unicode__(self):
         return "%s" % (self.name)
 
+    @property
     def get_region(self):
         return self.offering.region
 
-    region = property(get_region)
-
+    @property
     def get_environment(self):
         return self.offering.region.environment
 
-    environment = property(get_environment)
+    @property
+    def script_template(self):
+        if not self.script_file:
+            return ""
+
+        with open(self.script_file) as f:
+            return f.read()
 
 
 simple_audit.register(PlanAttr)
@@ -295,3 +312,5 @@ simple_audit.register(LastUsedBundle)
 simple_audit.register(CloudStackRegion)
 simple_audit.register(DatabaseInfraOffering)
 simple_audit.register(CloudStackPack)
+simple_audit.register(BundleGroup)
+simple_audit.register(OfferingGroup)
