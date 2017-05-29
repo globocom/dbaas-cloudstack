@@ -249,7 +249,7 @@ class LastUsedBundleDatabaseInfra(BundleModel):
     @classmethod
     def get_next_infra_bundle(cls, databaseinfra):
         plan = PlanAttr.objects.get(plan=databaseinfra.plan)
-        bundles = list(plan.bundle.filter(is_active=True))
+        bundles = list(plan.bundles.filter(is_active=True))
         randon_bundle = bundles[cls.get_randon_bundle_index(bundles)]
 
         obj, created = cls.objects.get_or_create(
