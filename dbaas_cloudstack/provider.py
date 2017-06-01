@@ -113,6 +113,18 @@ class CloudStackProvider(object):
             return None
 
     def deploy_virtual_machine(self, offering, bundle, project_id, vmname, affinity_group_id=None):
+        def make_error_msg(response=None, msg=None):
+            if response:
+                errorcode = response.get('errorcode')
+                errortext = response.get('errortext')
+            if msg:
+                errorcode = None
+                errortext = msg
+
+            return ("CloudStack could not create the "
+                    "virtualmachine because {} | {}".format(errortext, errorcode))
+
+        error = None
         try:
             request = {'serviceofferingid': offering,
                        'templateid': bundle.templateid,
@@ -138,18 +150,21 @@ class CloudStackProvider(object):
                     else:
                         request = {
                             'projectid': project_id, 'id': response['id']}
-                    return self.api.listVirtualMachines('GET', request)
+                    return (error, self.api.listVirtualMachines('GET', request),)
                 else:
-                    return False
+                    error = make_error_msg(msg='jobid not found in response')
+                    return (error, False,)
             else:
                 LOG.warning("Something ocurred on cloudstack: %s, %s" %
                             (response['errorcode'], response['errortext']))
-                return None
+                error = make_error_msg(response=response)
+                return (error, None,)
 
         except Exception as e:
             LOG.warning(
                 "We could not create the VirtualMachine because %s" % e)
-            return None
+            error = make_error_msg(msg=e)
+            return (error, None,)
 
     def remove_secondary_ips(self, cloudstack_ip_id):
         try:
@@ -461,7 +476,7 @@ class CloudStackProvider(object):
 
             if 'jobid' in response:
                 query_async = self.query_async_job(jobid=response['jobid'])
-                if query_async :
+                if query_async:
                     LOG.info("VirtualMachine reinstalled!")
                     return True
                 else:
