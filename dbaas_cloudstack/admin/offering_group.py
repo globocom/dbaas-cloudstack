@@ -44,3 +44,6 @@ class EnvironmentListFilter(BaseGroupFilter):
 
 class OfferingGroupAdmin(admin.ModelAdmin):
     list_filter = (RegionListFilter, EnvironmentListFilter)
+
+    change_form_template = "dbaas_cloudstack/offeringgroup/change_form.html"
+    add_form_template = "admin/change_form.html"
