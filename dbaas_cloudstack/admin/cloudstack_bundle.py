@@ -18,6 +18,9 @@ class CloudStackBundleAdmin(admin.ModelAdmin):
     action_form = CloudStackBundleActionForm
     actions = [update_field_value]
 
+    change_form_template = "dbaas_cloudstack/cloudstackbundle/change_form.html"
+    add_form_template = "admin/change_form.html"    
+
     def get_actions(self, request):
         actions = super(CloudStackBundleAdmin, self).get_actions(request)
         del actions['delete_selected']
