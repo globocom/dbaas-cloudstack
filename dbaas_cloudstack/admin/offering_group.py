@@ -49,3 +49,8 @@ class OfferingGroupAdmin(admin.ModelAdmin):
 
     change_form_template = "dbaas_cloudstack/offeringgroup/change_form.html"
     add_form_template = "admin/change_form.html"
+
+    class Media:
+        css = {
+            "all":("static/dbaas_cloudstack/css/bundlegroup-widgets.css",)
+        }
