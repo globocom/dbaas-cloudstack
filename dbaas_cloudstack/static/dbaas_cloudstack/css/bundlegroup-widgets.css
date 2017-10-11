@@ -4,13 +4,17 @@
 }
 
 .selector select {
-    width: 480px;
+    width: 450px;
     height: 17.2em;
+}
+
+#id_offerings_from, #id_offerings_to {
+	overflow-x: auto;
 }
 
 .selector-available, .selector-chosen {
     float: left;
-    width: 480px;
+    width: 450px;
     text-align: center;
     margin-bottom: 5px;
 }
