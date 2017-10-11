@@ -45,5 +45,7 @@ class EnvironmentListFilter(BaseGroupFilter):
 class BundleGroupAdmin(admin.ModelAdmin):
     list_filter = (EngineListFilter, EnvironmentListFilter)
 
+    filter_horizontal = ("bundles",)
+
     change_form_template = "dbaas_cloudstack/bundlegroup/change_form.html"
     add_form_template = "admin/change_form.html"
