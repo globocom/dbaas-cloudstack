@@ -52,5 +52,5 @@ class OfferingGroupAdmin(admin.ModelAdmin):
 
     class Media:
         css = {
-            "all": ("static/dbaas_cloudstack/css/bundlegroup-widgets.css",)
+            "all": ("dbaas_cloudstack/css/bundlegroup-widgets.css",)
         }
