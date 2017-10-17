@@ -5,6 +5,7 @@ from dbaas_cloudstack.models import CloudStackRegion
 from dbaas_cloudstack.models import CloudStackOffering
 from dbaas_cloudstack.util.admin_filters import BaseGroupFilter
 
+
 class RegionListFilter(BaseGroupFilter):
     title = 'region'
 
@@ -39,7 +40,6 @@ class EnvironmentListFilter(BaseGroupFilter):
             acceptable_ids.extend(offering.offeringgroup_set.values_list("id", flat=True))
 
         return acceptable_ids
-        
 
 
 class OfferingGroupAdmin(admin.ModelAdmin):
@@ -52,5 +52,5 @@ class OfferingGroupAdmin(admin.ModelAdmin):
 
     class Media:
         css = {
-            "all":("static/dbaas_cloudstack/css/bundlegroup-widgets.css",)
+            "all": ("static/dbaas_cloudstack/css/bundlegroup-widgets.css",)
         }
