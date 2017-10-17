@@ -4,3 +4,4 @@ include HISTORY.rst
 include LICENSE
 include README.rst
 recursive-include dbaas_cloudstack *.html *.png *.gif *js *jpg *jpeg *svg *py *sql
+recursive-include app_share/static *
