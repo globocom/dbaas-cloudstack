@@ -278,10 +278,6 @@ class CloudStackPack(BaseModel):
     offering = models.ForeignKey('CloudStackOffering', related_name="cs_offering_packs")
     engine_type = models.ForeignKey('physical.EngineType', verbose_name=_("Engine Type"), related_name='cs_packs')
     name = models.CharField(verbose_name=_("Name"), max_length=100, help_text="Cloud Stack Pack Name")
-    script_file = models.CharField(
-        verbose_name=_("Script"), max_length=300, help_text="Full file path",
-        null=True, blank=True
-    )
 
     def __unicode__(self):
         return "%s" % (self.name)
@@ -293,14 +289,6 @@ class CloudStackPack(BaseModel):
     @property
     def get_environment(self):
         return self.offering.region.environment
-
-    @property
-    def script_template(self):
-        if not self.script_file:
-            return ""
-
-        with open(self.script_file) as f:
-            return f.read()
 
 
 simple_audit.register(PlanAttr)
