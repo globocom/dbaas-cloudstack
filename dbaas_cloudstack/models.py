@@ -260,7 +260,6 @@ class LastUsedBundleDatabaseInfra(BundleModel):
         if not created:
             obj.bundle = cls.get_next_bundle(current_bundle=obj.bundle,
                                              bundles=bundles)
-            obj.save()
         return obj.bundle
 
     @classmethod
